@@ -80,6 +80,6 @@ export class CategoryList {
     }
 }
 
-export function initializeCategories() {
-    return new CategoryList('category-list');
+export function initializeCategories(options = {}) {
+    return new CategoryList('category-list', options);
 }
