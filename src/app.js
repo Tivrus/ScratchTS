@@ -1,5 +1,6 @@
 import { initializeCategories } from './categories/CategoryList.js';
 import { initializeBlockLibrary } from './blocks/BlockLibrary.js';
+import { initializeDragAndDrop } from './ui/DragAndDrop.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const blockLibrary = initializeBlockLibrary();
@@ -9,4 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
             blockLibrary.loadBlocksForCategory(categoryId);
         }
     });
+
+    initializeDragAndDrop();
 });

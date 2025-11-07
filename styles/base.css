@@ -8,6 +8,7 @@ body {
     display: flex;
     height: 100vh;
     overflow: hidden;
+    position: relative;
 }
 
 #categories {
@@ -21,6 +22,8 @@ body {
     display: flex;
     flex-direction: column;
     height: 100vh;
+    position: relative;
+    z-index: 1;
 }
 
 #categories h3 {
@@ -86,12 +89,14 @@ body {
 
 
 #sidebar {
-    width: 21   0px;
+    width: 190px;
     background-color: #2c3e50;
     border-right: 2px solid #34495e;
     padding: 20px 0;
     overflow-y: auto;
     flex-shrink: 0;
+    position: relative;
+    z-index: 1;
 }
 
 #sidebar h3 {
@@ -132,24 +137,31 @@ body {
     flex: 1;
     position: relative;
     background-color: #1e252f;
+    z-index: 100;
 }
 
 #block-container {
     width: 100%;
     height: 100%;
     cursor: default;
+    position: relative;
+    z-index: 100;
 }
 
 .block {
     cursor: grab;
-    transition: filter 0.2s ease;
 }
 
-.block:hover {
-    filter: brightness(1.1);
+.workspace-block {
+    cursor: grab;
+    user-select: none;
 }
 
-.block:active {
+.workspace-block.dragging {
+    cursor: grabbing;
+}
+
+.workspace-block:active {
     cursor: grabbing;
 }
 
@@ -190,4 +202,39 @@ body {
 #trash-can svg {
     width: 100%;
     height: 100%;
+}
+
+#drag-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 9999;
+}
+
+#drag-overlay-svg {
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+#drag-overlay .workspace-block {
+    pointer-events: auto;
+}
+
+.ghost-block {
+    opacity: 0.6 !important;
+    pointer-events: none !important;
+}
+
+#debug-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10000;
 }
