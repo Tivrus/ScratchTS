@@ -12,7 +12,8 @@ export const ConnectorType = {
     TOP: 'top',
     BOTTOM: 'bottom',
     INNER_TOP: 'inner-top',
-    INNER_BOTTOM: 'inner-bottom'
+    INNER_BOTTOM: 'inner-bottom',
+    MIDDLE: 'middle' // Средний коннектор между соединенными блоками
 };
 
 export function getBlockConnectors(blockType, block = null) {
@@ -46,6 +47,11 @@ export function getBlockConnectors(blockType, block = null) {
         }
         if (block.dataset.bottomConnected === 'true') {
             delete connectors[ConnectorType.BOTTOM];
+        }
+        
+        // Если блок имеет следующий блок (bottomConnected), добавляем средний коннектор
+        if (block.dataset.bottomConnected === 'true' && block.dataset.next) {
+            connectors[ConnectorType.MIDDLE] = true;
         }
     }
 
@@ -91,6 +97,10 @@ export function getConnectorPosition(block, connectorType) {
         [ConnectorType.INNER_BOTTOM]: {
             x: connectorX,
             y: blockRect.bottom - bottomOffset - 32 + 1
+        },
+        [ConnectorType.MIDDLE]: {
+            x: connectorX,
+            y: blockRect.bottom - bottomOffset + 1 // Средний коннектор на месте bottom
         }
     };
 
@@ -104,7 +114,7 @@ export function findNearestConnector(draggedBlock, allBlocks) {
 
     const draggedRect = draggedBlock.getBoundingClientRect();
     const draggedType = draggedBlock.dataset.type;
-    const draggedConnectors = getBlockConnectors(draggedType);
+    const draggedConnectors = getBlockConnectors(draggedType, draggedBlock);
 
     let nearestConnection = null;
     let minDistance = CONNECTOR_THRESHOLD;
@@ -114,7 +124,7 @@ export function findNearestConnector(draggedBlock, allBlocks) {
         if (targetBlock.classList.contains('ghost-block')) return;
 
         const targetType = targetBlock.dataset.type;
-        const targetConnectors = getBlockConnectors(targetType);
+        const targetConnectors = getBlockConnectors(targetType, targetBlock);
 
         Object.keys(draggedConnectors).forEach(draggedConnectorType => {
             const draggedPos = getConnectorPosition(draggedBlock, draggedConnectorType);
@@ -150,10 +160,11 @@ export function findNearestConnector(draggedBlock, allBlocks) {
 
 function canConnect(draggedConnector, targetConnector) {
     const validConnections = {
-        [ConnectorType.TOP]: [ConnectorType.BOTTOM, ConnectorType.INNER_BOTTOM],
+        [ConnectorType.TOP]: [ConnectorType.BOTTOM, ConnectorType.INNER_BOTTOM, ConnectorType.MIDDLE],
         [ConnectorType.BOTTOM]: [ConnectorType.TOP, ConnectorType.INNER_TOP],
         [ConnectorType.INNER_TOP]: [ConnectorType.BOTTOM],
-        [ConnectorType.INNER_BOTTOM]: [ConnectorType.TOP]
+        [ConnectorType.INNER_BOTTOM]: [ConnectorType.TOP],
+        [ConnectorType.MIDDLE]: [ConnectorType.TOP] // Средний коннектор принимает блоки сверху
     };
 
     return validConnections[draggedConnector]?.includes(targetConnector) || false;
@@ -204,7 +215,7 @@ export function updateDebugOverlay(workspaceSVG) {
     const blocks = workspaceSVG.querySelectorAll('.workspace-block:not(.ghost-block)');
     blocks.forEach(block => {
         const blockType = block.dataset.type;
-        const connectors = getBlockConnectors(blockType);
+        const connectors = getBlockConnectors(blockType, block);
         const blockRect = block.getBoundingClientRect();
         const workspaceRect = workspaceSVG.getBoundingClientRect();
         
@@ -231,7 +242,8 @@ export function updateDebugOverlay(workspaceSVG) {
             }
             
             const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            rect.setAttribute('x', centerX - zoneWidth / 2);
+            // Центрируем зону по ширине блока
+            rect.setAttribute('x', blockRect.left - workspaceRect.left);
             rect.setAttribute('y', centerY - zoneHeight / 2 + offsetY);
             rect.setAttribute('width', zoneWidth);
             rect.setAttribute('height', zoneHeight);

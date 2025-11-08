@@ -35,6 +35,48 @@ export const blocks = [
     },
 
     {
+        id: 'turn_right_steps',
+        category: 'Motion',
+        type: 'default-block',
+        labels: [
+            {
+                text: 'turn right',
+                pos: [24, 28]
+            }
+        ],
+        size: ["+", 20],
+        fields: [
+            {
+                id: 'steps2',
+                type: 'Number',
+                default: 10,
+                pos: [90, 20]
+            }
+        ]
+    },
+
+    {
+        id: 'turn_left_steps',
+        category: 'Motion',
+        type: 'default-block',
+        labels: [
+            {
+                text: 'turn left',
+                pos: [24, 28]
+            }
+        ],
+        size: ["+", 10],
+        fields: [
+            {
+                id: 'steps3',
+                type: 'Number',
+                default: 10,
+                pos: [90, 20]
+            }
+        ]
+    },
+    
+    {
         id: 'control_repeat',
         category: 'Control',
         type: 'c-block',

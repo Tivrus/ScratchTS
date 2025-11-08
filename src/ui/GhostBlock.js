@@ -2,6 +2,8 @@
  * GhostBlock - визуализация места подключения блока
  */
 
+import { BLOCK_FORMS } from '../utils/Constants.js';
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 export class GhostBlock {
@@ -10,7 +12,7 @@ export class GhostBlock {
         this.ghostElement = null;
     }
 
-    show(draggedBlock, targetBlock, targetConnectorPos, draggedConnectorPos) {
+    show(draggedBlock, targetBlock, targetConnectorPos, draggedConnectorPos, connectorType = null) {
         this.hide();
 
         if (!draggedBlock || !targetBlock || !targetConnectorPos || !draggedConnectorPos) return;
@@ -33,14 +35,29 @@ export class GhostBlock {
         // Получаем X координату целевого блока из его transform
         const targetTransform = this.getTranslateValues(targetBlock.getAttribute('transform'));
         
-        // Для Y координаты вычисляем offset относительно верха блока
-        const draggedBlockRect = draggedBlock.getBoundingClientRect();
-        const offsetY = draggedConnectorPos.y - draggedBlockRect.top;
-        
         const workspaceRect = this.containerSVG.getBoundingClientRect();
-        // X координата берется от целевого блока, чтобы обеспечить идеальное выравнивание
         const finalX = targetTransform.x;
-        const finalY = targetConnectorPos.y - workspaceRect.top - offsetY;
+        let finalY;
+        
+        // Для MIDDLE коннектора используем прямой расчет на основе реальной высоты path
+        if (connectorType === 'MIDDLE') {
+            const targetType = targetBlock.dataset.type;
+            const targetForm = BLOCK_FORMS[targetType];
+            const targetPathHeight = targetForm?.pathHeight || parseFloat(targetBlock.dataset.height) || 58;
+            
+            // Получаем topOffset ghostblock для компенсации пустого пространства в viewBox
+            const draggedType = draggedBlock.dataset.type;
+            const draggedForm = BLOCK_FORMS[draggedType];
+            const draggedTopOffset = draggedForm?.topOffset || 0;
+            
+            // Позиция = позиция targetBlock + высота path targetBlock - topOffset ghostblock
+            finalY = targetTransform.y + targetPathHeight - draggedTopOffset;
+        } else {
+            // Для других коннекторов используем стандартный расчет
+            const draggedBlockRect = draggedBlock.getBoundingClientRect();
+            const offsetY = draggedConnectorPos.y - draggedBlockRect.top;
+            finalY = targetConnectorPos.y - workspaceRect.top - offsetY;
+        }
 
         blockClone.setAttribute('transform', `translate(${finalX}, ${finalY})`);
         blockClone.style.pointerEvents = 'none';
