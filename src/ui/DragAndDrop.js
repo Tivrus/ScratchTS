@@ -384,6 +384,24 @@ export function initializeDragAndDrop({
         }, 300);
     }
 
+    function animateBlocksShrink(blocks, callback) {
+        const targets = (blocks || []).filter(Boolean);
+        if (!targets.length) {
+            if (callback) callback();
+            return;
+        }
+
+        let remaining = targets.length;
+        const handleComplete = () => {
+            remaining -= 1;
+            if (remaining === 0 && callback) {
+                callback();
+            }
+        };
+
+        targets.forEach(block => animateBlockShrink(block, handleComplete));
+    }
+
     function endDrag(event) {
         if (!activeDrag) {
             cleanupDragListeners();
@@ -406,12 +424,20 @@ export function initializeDragAndDrop({
         const insideWorkspace = isPointerInsideWorkspace(workspace, event);
 
         if (pointerInTrash) {
-            animateBlockShrink(element, dragOverlaySVG, () => {
+            const blocksToRemove = isDraggingChain
+                ? getChainBlocks(element, dragOverlaySVG)
+                : [element];
+
+            animateBlocksShrink(blocksToRemove, () => {
                 updateDebugOverlay(workspaceSVG);
                 saveWorkspaceState(workspaceSVG);
             });
         } else if (blockInSidebar && pointerInSidebar) {
-            animateBlockShrink(element, dragOverlaySVG, () => {
+            const blocksToRemove = isDraggingChain
+                ? getChainBlocks(element, dragOverlaySVG)
+                : [element];
+
+            animateBlocksShrink(blocksToRemove, () => {
                 updateDebugOverlay(workspaceSVG);
                 saveWorkspaceState(workspaceSVG);
             });

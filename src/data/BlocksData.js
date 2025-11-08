@@ -84,10 +84,6 @@ export const blocks = [
             {
                 text: 'repeat',
                 pos: [24, 28]
-            },
-            {
-                text: 'times',
-                pos: [54, 28]
             }
         ],
         size: null,
