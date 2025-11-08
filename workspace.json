@@ -1,53 +1,51 @@
 {
   "blocks": {
-    "ca4ae65c-b958-4035-add6-364237fc5fa5": {
-      "opcode": "turn_right_steps",
-      "next": "8056b028-334b-4d87-be63-b1799e86ec42",
+    "ad4a9919-8677-4ba5-a32a-9713b5123d9e": {
+      "opcode": "motion_start",
+      "next": "6858d6eb-6a5a-4ec0-9e7f-a3ffbf245856",
       "parent": null,
       "inputs": {},
       "fields": {},
       "topLevel": true,
-      "x": 112,
-      "y": 428
+      "x": 186,
+      "y": 150
     },
-    "8056b028-334b-4d87-be63-b1799e86ec42": {
+    "6858d6eb-6a5a-4ec0-9e7f-a3ffbf245856": {
+      "opcode": "motion_move_steps",
+      "next": "95b78ffc-18d6-4d4b-a98b-67f40037db47",
+      "parent": "ad4a9919-8677-4ba5-a32a-9713b5123d9e",
+      "inputs": {},
+      "fields": {},
+      "topLevel": false
+    },
+    "95b78ffc-18d6-4d4b-a98b-67f40037db47": {
+      "opcode": "turn_right_steps",
+      "next": "51332bb0-ea61-40e3-8668-3c70e752aa36",
+      "parent": "6858d6eb-6a5a-4ec0-9e7f-a3ffbf245856",
+      "inputs": {},
+      "fields": {},
+      "topLevel": false
+    },
+    "51332bb0-ea61-40e3-8668-3c70e752aa36": {
+      "opcode": "motion_move_steps",
+      "next": "827c0896-17e4-484f-a7db-88b64c94365e",
+      "parent": "95b78ffc-18d6-4d4b-a98b-67f40037db47",
+      "inputs": {},
+      "fields": {},
+      "topLevel": false
+    },
+    "827c0896-17e4-484f-a7db-88b64c94365e": {
+      "opcode": "turn_right_steps",
+      "next": "e70b6c5d-ebb3-4325-ba91-919cc8ca76ae",
+      "parent": "51332bb0-ea61-40e3-8668-3c70e752aa36",
+      "inputs": {},
+      "fields": {},
+      "topLevel": false
+    },
+    "e70b6c5d-ebb3-4325-ba91-919cc8ca76ae": {
       "opcode": "turn_left_steps",
       "next": null,
-      "parent": "ca4ae65c-b958-4035-add6-364237fc5fa5",
-      "inputs": {},
-      "fields": {},
-      "topLevel": false
-    },
-    "daaa1375-1e61-4182-bdd3-4719ea0fdd5b": {
-      "opcode": "motion_move_steps",
-      "next": "f020863a-721b-492a-81c8-df4534fc7e13",
-      "parent": null,
-      "inputs": {},
-      "fields": {},
-      "topLevel": true,
-      "x": 170,
-      "y": 156
-    },
-    "f020863a-721b-492a-81c8-df4534fc7e13": {
-      "opcode": "motion_move_steps",
-      "next": "e3ec02fc-9423-475d-8f0d-351391fb7cb7",
-      "parent": "daaa1375-1e61-4182-bdd3-4719ea0fdd5b",
-      "inputs": {},
-      "fields": {},
-      "topLevel": false
-    },
-    "e3ec02fc-9423-475d-8f0d-351391fb7cb7": {
-      "opcode": "turn_right_steps",
-      "next": "4a21c7d5-5cd0-43b4-b363-e08008996221",
-      "parent": "f020863a-721b-492a-81c8-df4534fc7e13",
-      "inputs": {},
-      "fields": {},
-      "topLevel": false
-    },
-    "4a21c7d5-5cd0-43b4-b363-e08008996221": {
-      "opcode": "control_stop",
-      "next": null,
-      "parent": "e3ec02fc-9423-475d-8f0d-351391fb7cb7",
+      "parent": "827c0896-17e4-484f-a7db-88b64c94365e",
       "inputs": {},
       "fields": {},
       "topLevel": false

@@ -1,7 +1,7 @@
 import { createWorkspaceBlock } from '../blocks/BlockFactory.js';
 import { findNearestConnector, getConnectorPosition, ConnectorType, updateDebugOverlay, initDebugMode } from '../blocks/BlockConnectors.js';
 import { getChainBlocks, getTopLevelBlock, isTopLevelBlock, moveChain, breakChain } from '../blocks/BlockChain.js';
-import { handleSpecialBlockInsertion } from '../blocks/SpecialBlocks.js';
+import { handleSpecialBlockInsertion, canConnectFromTop, canConnectFromBottom, handleMiddleInsertionWithSpecialBlocks } from '../blocks/SpecialBlocks.js';
 import { saveWorkspaceState, initWorkspaceState } from '../utils/WorkspaceState.js';
 import { initBlockAlignment } from '../utils/BlockAlignment.js';
 import { BLOCK_FORMS } from '../utils/Constants.js';
@@ -169,6 +169,16 @@ export function initializeDragAndDrop({
         
         // Если подключаем сверху (draggedBlock сверху, targetBlock снизу)
         if (targetConnector === ConnectorType.TOP || targetConnector === ConnectorType.INNER_TOP) {
+            // Проверяем, можно ли подключить цепь сверху (учитываем stop-block)
+            if (!canConnectFromTop(draggedBlock, targetBlock, workspaceSVG)) {
+                draggedBlock.dataset.topLevel = 'true';
+                return;
+            }
+            
+            // Получаем всю перетаскиваемую цепь
+            const draggedChain = getChainBlocks(draggedBlock, workspaceSVG);
+            const lastDraggedBlock = draggedChain[draggedChain.length - 1];
+            
             // Позиционируем draggedBlock, а затем двигаем targetBlock и всю его цепь
             const draggedBlockRect = draggedBlock.getBoundingClientRect();
             const offsetY = draggedConnectorPos.y - draggedBlockRect.top;
@@ -177,10 +187,30 @@ export function initializeDragAndDrop({
             const finalX = draggedTransform.x;
             const finalY = draggedConnectorPos.y - workspaceRect.top - offsetY;
             
-            // Вычисляем, на сколько нужно сдвинуть targetBlock
-            const targetBlockRect = targetBlock.getBoundingClientRect();
-            const targetOffsetY = targetConnectorPos.y - targetBlockRect.top;
-            const targetFinalY = draggedConnectorPos.y - workspaceRect.top - targetOffsetY;
+            // Позиционируем всю перетаскиваемую цепь
+            draggedBlock.setAttribute('transform', `translate(${finalX}, ${finalY})`);
+            if (draggedChain.length > 1) {
+                let currentY = finalY;
+                for (let i = 0; i < draggedChain.length; i++) {
+                    const block = draggedChain[i];
+                    if (i === 0) continue; // Первый блок уже позиционирован
+                    
+                    const prevBlock = draggedChain[i - 1];
+                    const prevPathHeight = getBlockPathHeight(prevBlock);
+                    currentY += prevPathHeight;
+                    
+                    block.setAttribute('transform', `translate(${finalX}, ${currentY})`);
+                }
+            }
+            
+            // Вычисляем позицию для targetBlock (должен быть под последним блоком draggedChain)
+            // Сначала вычисляем общую высоту draggedChain
+            let totalDraggedHeight = 0;
+            draggedChain.forEach(block => {
+                totalDraggedHeight += getBlockPathHeight(block);
+            });
+            
+            const targetFinalY = finalY + totalDraggedHeight;
             
             // Двигаем targetBlock и всю его цепь
             const targetChain = getChainBlocks(targetBlock, workspaceSVG);
@@ -191,17 +221,23 @@ export function initializeDragAndDrop({
                 block.setAttribute('transform', `translate(${finalX}, ${blockTransform.y + deltaY})`);
             });
             
-            // Устанавливаем связи
-            targetBlock.dataset.parent = draggedBlock.dataset.instanceId;
-            draggedBlock.dataset.next = targetBlock.dataset.instanceId;
+            // Устанавливаем связи (targetBlock подключается к последнему блоку draggedChain)
+            targetBlock.dataset.parent = lastDraggedBlock.dataset.instanceId;
+            lastDraggedBlock.dataset.next = targetBlock.dataset.instanceId;
             
             // Отключаем использованные коннекторы
             targetBlock.dataset.topConnected = 'true';
-            draggedBlock.dataset.bottomConnected = 'true';
+            lastDraggedBlock.dataset.bottomConnected = 'true';
             targetBlock.dataset.topLevel = 'false';
             draggedBlock.dataset.topLevel = 'true';
             
         } else if (targetConnector === ConnectorType.BOTTOM || targetConnector === ConnectorType.INNER_BOTTOM) {
+            // Проверяем, можно ли подключить цепь снизу (учитываем start-block)
+            if (!canConnectFromBottom(draggedBlock, targetBlock, workspaceSVG)) {
+                draggedBlock.dataset.topLevel = 'true';
+                return;
+            }
+            
             // Подключаем снизу (draggedBlock снизу, targetBlock сверху)
             const draggedBlockRect = draggedBlock.getBoundingClientRect();
             const offsetY = draggedConnectorPos.y - draggedBlockRect.top;
@@ -210,7 +246,24 @@ export function initializeDragAndDrop({
             const finalX = targetTransform.x;
             const finalY = targetConnectorPos.y - workspaceRect.top - offsetY;
             
+            // Позиционируем первый блок
             draggedBlock.setAttribute('transform', `translate(${finalX}, ${finalY})`);
+            
+            // Позиционируем всю цепь (если это цепь)
+            const draggedChain = getChainBlocks(draggedBlock, workspaceSVG);
+            if (draggedChain.length > 1) {
+                let currentY = finalY;
+                for (let i = 0; i < draggedChain.length; i++) {
+                    const block = draggedChain[i];
+                    if (i === 0) continue; // Первый блок уже позиционирован
+                    
+                    const prevBlock = draggedChain[i - 1];
+                    const prevPathHeight = getBlockPathHeight(prevBlock);
+                    currentY += prevPathHeight;
+                    
+                    block.setAttribute('transform', `translate(${finalX}, ${currentY})`);
+                }
+            }
             
             // Устанавливаем связи
             draggedBlock.dataset.parent = targetBlock.dataset.instanceId;
@@ -240,7 +293,10 @@ export function initializeDragAndDrop({
             // Проверяем, является ли вставляемый блок специальным (start-block или stop-block)
             const isSpecialBlock = handleSpecialBlockInsertion(draggedBlock, targetBlock, lowerBlock, workspaceSVG);
             
-            if (!isSpecialBlock && lowerBlock) {
+            // Проверяем, нужна ли специальная обработка для вставки цепи с start/stop блоками
+            const specialChainHandled = handleMiddleInsertionWithSpecialBlocks(draggedBlock, targetBlock, lowerBlock, workspaceSVG);
+            
+            if (!isSpecialBlock && !specialChainHandled && lowerBlock) {
                 // Стандартная логика вставки для обычных блоков
                 // Получаем всю вставляемую цепь (она уже в workspaceSVG)
                 const insertChain = getChainBlocks(draggedBlock, workspaceSVG);
