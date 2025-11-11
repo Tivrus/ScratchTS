@@ -2,6 +2,7 @@ import { createWorkspaceBlock } from '../blocks/BlockFactory.js';
 import { findNearestConnector, getConnectorPosition, ConnectorType, updateDebugOverlay, initDebugMode } from '../blocks/BlockConnectors.js';
 import { getChainBlocks, getTopLevelBlock, isTopLevelBlock, moveChain, breakChain } from '../blocks/BlockChain.js';
 import { handleSpecialBlockInsertion, canConnectFromTop, canConnectFromBottom, handleMiddleInsertionWithSpecialBlocks } from '../blocks/SpecialBlocks.js';
+import { isCBlock, insertBlockInside, getInsertPosition, hasInnerBlocks, removeBlockFromInside } from '../blocks/CBlock.js';
 import { saveWorkspaceState, initWorkspaceState } from '../utils/WorkspaceState.js';
 import { initBlockAlignment } from '../utils/BlockAlignment.js';
 import { BLOCK_FORMS } from '../utils/Constants.js';
@@ -167,8 +168,28 @@ export function initializeDragAndDrop({
         const targetTransform = getTranslateValues(targetBlock.getAttribute('transform'));
         const draggedTransform = getTranslateValues(draggedBlock.getAttribute('transform'));
         
+        // Обработка вставки внутрь c-block (INNER коннекторы)
+        if (targetConnector === ConnectorType.INNER_TOP || targetConnector === ConnectorType.INNER_BOTTOM) {
+            if (!isCBlock(targetBlock)) {
+                console.warn('[DragAndDrop] INNER connector used on non c-block');
+                draggedBlock.dataset.topLevel = 'true';
+                return;
+            }
+            
+            // Получаем позицию для вставки
+            const insertPos = getInsertPosition(targetBlock, workspaceSVG);
+            
+            // INNER_BOTTOM вставляет в конец, INNER_TOP — в начало
+            const atBottom = targetConnector === ConnectorType.INNER_BOTTOM;
+            
+            // Вставляем блок внутрь c-block
+            insertBlockInside(targetBlock, draggedBlock, workspaceSVG, insertPos.x, insertPos.y, atBottom);
+            
+            return;
+        }
+        
         // Если подключаем сверху (draggedBlock сверху, targetBlock снизу)
-        if (targetConnector === ConnectorType.TOP || targetConnector === ConnectorType.INNER_TOP) {
+        if (targetConnector === ConnectorType.TOP) {
             // Проверяем, можно ли подключить цепь сверху (учитываем stop-block)
             if (!canConnectFromTop(draggedBlock, targetBlock, workspaceSVG)) {
                 draggedBlock.dataset.topLevel = 'true';
@@ -231,7 +252,7 @@ export function initializeDragAndDrop({
             targetBlock.dataset.topLevel = 'false';
             draggedBlock.dataset.topLevel = 'true';
             
-        } else if (targetConnector === ConnectorType.BOTTOM || targetConnector === ConnectorType.INNER_BOTTOM) {
+        } else if (targetConnector === ConnectorType.BOTTOM) {
             // Проверяем, можно ли подключить цепь снизу (учитываем start-block)
             if (!canConnectFromBottom(draggedBlock, targetBlock, workspaceSVG)) {
                 draggedBlock.dataset.topLevel = 'true';
@@ -673,7 +694,14 @@ export function initializeDragAndDrop({
             const parentBlockId = block.dataset.parent;
             const parentBlock = workspaceSVG.querySelector(`[data-instance-id="${parentBlockId}"]`);
             if (parentBlock) {
-                breakChain(parentBlock, block);
+                // Проверяем, является ли родитель c-block
+                if (isCBlock(parentBlock)) {
+                    // Удаляем блок из c-block
+                    removeBlockFromInside(parentBlock, block, workspaceSVG);
+                } else {
+                    // Обычный разрыв цепи
+                    breakChain(parentBlock, block);
+                }
                 // Сохраняем сразу после разрыва цепи
                 saveWorkspaceState(workspaceSVG);
             }

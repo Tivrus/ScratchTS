@@ -3,6 +3,7 @@
  */
 
 import { BLOCK_FORMS } from '../utils/Constants.js';
+import { hasInnerBlocks } from './CBlock.js';
 
 const CONNECTOR_THRESHOLD = 50;
 let DEBUG_MODE = false;
@@ -28,7 +29,6 @@ export function getBlockConnectors(blockType, block = null) {
         'c-block': {
             [ConnectorType.TOP]: true,
             [ConnectorType.INNER_TOP]: true,
-            [ConnectorType.INNER_BOTTOM]: true,
             [ConnectorType.BOTTOM]: true
         },
         'stop-block': {
@@ -42,16 +42,36 @@ export function getBlockConnectors(blockType, block = null) {
     
     // Если передан блок, проверяем какие коннекторы уже заняты
     if (block) {
-        if (block.dataset.topConnected === 'true') {
-            delete connectors[ConnectorType.TOP];
-        }
-        if (block.dataset.bottomConnected === 'true') {
-            delete connectors[ConnectorType.BOTTOM];
-        }
-        
-        // Если блок имеет следующий блок (bottomConnected), добавляем средний коннектор
-        if (block.dataset.bottomConnected === 'true' && block.dataset.next) {
-            connectors[ConnectorType.MIDDLE] = true;
+        // Для c-block логика коннекторов особая
+        if (blockType === 'c-block') {
+            // Верхний внешний коннектор
+            if (block.dataset.topConnected === 'true') {
+                delete connectors[ConnectorType.TOP];
+            }
+            
+            // Нижний внешний коннектор
+            if (block.dataset.bottomConnected === 'true') {
+                delete connectors[ConnectorType.BOTTOM];
+            }
+            
+            // Если внутри есть блоки, меняем INNER_TOP на INNER_BOTTOM
+            if (hasInnerBlocks(block)) {
+                delete connectors[ConnectorType.INNER_TOP];
+                connectors[ConnectorType.INNER_BOTTOM] = true;
+            }
+        } else {
+            // Для обычных блоков
+            if (block.dataset.topConnected === 'true') {
+                delete connectors[ConnectorType.TOP];
+            }
+            if (block.dataset.bottomConnected === 'true') {
+                delete connectors[ConnectorType.BOTTOM];
+            }
+            
+            // Если блок имеет следующий блок (bottomConnected), добавляем средний коннектор
+            if (block.dataset.bottomConnected === 'true' && block.dataset.next) {
+                connectors[ConnectorType.MIDDLE] = true;
+            }
         }
     }
 
@@ -91,11 +111,11 @@ export function getConnectorPosition(block, connectorType) {
             y: blockRect.bottom - bottomOffset + 1
         },
         [ConnectorType.INNER_TOP]: {
-            x: connectorX,
+            x: connectorX + 16, // Смещение вправо для внутренних блоков
             y: blockRect.top + 48 + 1
         },
         [ConnectorType.INNER_BOTTOM]: {
-            x: connectorX,
+            x: connectorX + 16, // Смещение вправо для внутренних блоков
             y: blockRect.bottom - bottomOffset - 32 + 1
         },
         [ConnectorType.MIDDLE]: {
@@ -160,10 +180,17 @@ export function findNearestConnector(draggedBlock, allBlocks) {
 
 function canConnect(draggedConnector, targetConnector) {
     const validConnections = {
-        [ConnectorType.TOP]: [ConnectorType.BOTTOM, ConnectorType.INNER_BOTTOM, ConnectorType.MIDDLE],
-        [ConnectorType.BOTTOM]: [ConnectorType.TOP, ConnectorType.INNER_TOP],
-        [ConnectorType.INNER_TOP]: [ConnectorType.BOTTOM],
-        [ConnectorType.INNER_BOTTOM]: [ConnectorType.TOP],
+        [ConnectorType.TOP]: [
+            ConnectorType.BOTTOM,
+            ConnectorType.INNER_BOTTOM,
+            ConnectorType.INNER_TOP, // Можно вставлять сверху в пустой c-block
+            ConnectorType.MIDDLE
+        ],
+        [ConnectorType.BOTTOM]: [
+            ConnectorType.TOP
+        ],
+        [ConnectorType.INNER_TOP]: [ConnectorType.TOP],  // c-block принимает блоки сверху внутрь
+        [ConnectorType.INNER_BOTTOM]: [ConnectorType.TOP],  // c-block принимает блоки внизу внутрь
         [ConnectorType.MIDDLE]: [ConnectorType.TOP] // Средний коннектор принимает блоки сверху
     };
 

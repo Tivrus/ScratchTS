@@ -3,6 +3,8 @@
  * Цепь — это группа связанных блоков, которые можно перетаскивать как единое целое
  */
 
+import { isCBlock, getInnerBlocks, exportCBlockToJSON } from './CBlock.js';
+
 /**
  * Получить все блоки в цепи, начиная с указанного блока
  * @param {SVGElement} startBlock - Начальный блок цепи
@@ -194,29 +196,33 @@ export function exportWorkspaceToJSON(workspaceSVG) {
         block.dataset.topLevel === 'true'
     );
     
-    // Обрабатываем только цепи (где есть next или parent)
-    topLevelBlocks.forEach(topBlock => {
-        const chain = getChainBlocks(topBlock, workspaceSVG);
-        
-        // Сохраняем только цепи из 2+ блоков
-        if (chain.length < 2) {
+    // Рекурсивная функция для обработки блока и его внутренних блоков
+    function processBlock(block) {
+        // Проверяем, что у блока есть instanceId
+        if (!block.dataset.instanceId || block.dataset.instanceId === 'undefined') {
             return;
         }
         
-        chain.forEach(block => {
-            // Проверяем, что у блока есть instanceId
-            if (!block.dataset.instanceId || block.dataset.instanceId === 'undefined') {
-                return;
-            }
+        // Пропускаем уже обработанные блоки
+        if (processedBlocks.has(block.dataset.instanceId)) {
+            return;
+        }
+        
+        processedBlocks.add(block.dataset.instanceId);
+        
+        let blockData;
+        
+        // Если это c-block, используем специальную функцию экспорта
+        if (isCBlock(block)) {
+            blockData = exportCBlockToJSON(block, workspaceSVG);
             
-            // Пропускаем уже обработанные блоки
-            if (processedBlocks.has(block.dataset.instanceId)) {
-                return;
-            }
-            
-            processedBlocks.add(block.dataset.instanceId);
-            
-            const blockData = {
+            // Обрабатываем внутренние блоки c-block
+            const innerBlocks = getInnerBlocks(block, workspaceSVG);
+            innerBlocks.forEach(innerBlock => {
+                processBlock(innerBlock);
+            });
+        } else {
+            blockData = {
                 opcode: block.dataset.id,
                 next: block.dataset.next || null,
                 parent: block.dataset.parent || null,
@@ -231,8 +237,22 @@ export function exportWorkspaceToJSON(workspaceSVG) {
                 blockData.x = Math.round(transform.x);
                 blockData.y = Math.round(transform.y);
             }
-            
-            blocks[block.dataset.instanceId] = blockData;
+        }
+        
+        blocks[block.dataset.instanceId] = blockData;
+    }
+    
+    // Обрабатываем только цепи (где есть next или parent)
+    topLevelBlocks.forEach(topBlock => {
+        const chain = getChainBlocks(topBlock, workspaceSVG);
+        
+        // Сохраняем только цепи из 2+ блоков
+        if (chain.length < 2) {
+            return;
+        }
+        
+        chain.forEach(block => {
+            processBlock(block);
         });
     });
     
