@@ -5,6 +5,8 @@
 import { BLOCK_FORMS } from '../utils/Constants.js';
 import { ConnectorType } from '../blocks/BlockConnectors.js';
 import PathUtils from '../utils/PathUtils.js';
+import { getAllChainBlocks } from '../blocks/BlockChain.js';
+import { hasInnerBlocks, C_BLOCK_EMPTY_INNER_SPACE } from '../blocks/CBlock.js';
 
 export class GhostBlock {
     constructor(containerSVG) {
@@ -21,10 +23,32 @@ export class GhostBlock {
             return;
         }
 
-        const isInnerConnector = connectorType === ConnectorType.INNER_TOP || connectorType === ConnectorType.INNER_BOTTOM;
-        if (isInnerConnector && targetBlock.dataset.type === 'c-block') {
-            const insertHeight = this.getBlockPathHeight(draggedBlock);
-            this.applyCBlockGhostResize(targetBlock, insertHeight);
+        let cBlockToResize = null;
+        const insertHeight = this.getBlockPathHeight(draggedBlock);
+        
+        // Случай 1: Вставка в пустой c-block (INNER_TOP коннектор)
+        if (connectorType === ConnectorType.INNER_TOP && targetBlock.dataset.type === 'c-block') {
+            cBlockToResize = targetBlock;
+        } 
+        // Случай 2-4: Вставка к внутренним блокам c-block (MIDDLE, TOP, BOTTOM коннекторы)
+        else if ([ConnectorType.MIDDLE, ConnectorType.TOP, ConnectorType.BOTTOM].includes(connectorType)) {
+            // Проверяем, является ли родитель targetBlock c-block
+            if (targetBlock.dataset.parent) {
+                const parentId = targetBlock.dataset.parent;
+                const parentBlock = this.containerSVG.querySelector(`[data-instance-id="${parentId}"]`);
+                if (parentBlock && parentBlock.dataset.type === 'c-block') {
+                    cBlockToResize = parentBlock;
+                }
+            }
+        }
+        
+        // Растягиваем c-block если нужно
+        if (cBlockToResize) {
+            const hasBlocksInside = hasInnerBlocks(cBlockToResize);
+            const effectiveInsertHeight = hasBlocksInside
+                ? insertHeight
+                : Math.max(0, insertHeight - C_BLOCK_EMPTY_INNER_SPACE);
+            this.applyCBlockGhostResize(cBlockToResize, effectiveInsertHeight);
         } else {
             this.releaseCBlockGhostResize();
         }
@@ -153,8 +177,22 @@ export class GhostBlock {
             originalPath: pathElement.getAttribute('d'),
             originalHeight: cBlock.dataset.height,
             originalInnerHeight: cBlock.dataset.innerHeight,
-            insertHeight
+            insertHeight,
+            blocksAfterPositions: new Map() // Сохраняем позиции блоков после c-block
         };
+
+        // Сохраняем позиции блоков после c-block
+        if (cBlock.dataset.next) {
+            const nextBlockId = cBlock.dataset.next;
+            const nextBlock = this.containerSVG.querySelector(`[data-instance-id="${nextBlockId}"]`);
+            if (nextBlock) {
+                const blocksAfter = getAllChainBlocks(nextBlock, this.containerSVG);
+                blocksAfter.forEach(block => {
+                    const transform = this.getTranslateValues(block.getAttribute('transform'));
+                    originalState.blocksAfterPositions.set(block.dataset.instanceId, { x: transform.x, y: transform.y });
+                });
+            }
+        }
 
         const config = PathUtils.getBlockResizeConfig('c-block') ?? {};
         const resizedPath = PathUtils.resizeBlockPath(originalState.originalPath, {
@@ -179,6 +217,19 @@ export class GhostBlock {
             }
         }
 
+        // Смещаем блоки после c-block вниз на высоту вставляемого блока
+        if (cBlock.dataset.next) {
+            const nextBlockId = cBlock.dataset.next;
+            const nextBlock = this.containerSVG.querySelector(`[data-instance-id="${nextBlockId}"]`);
+            if (nextBlock) {
+                const blocksAfter = getAllChainBlocks(nextBlock, this.containerSVG);
+                blocksAfter.forEach(block => {
+                    const transform = this.getTranslateValues(block.getAttribute('transform'));
+                    block.setAttribute('transform', `translate(${transform.x}, ${transform.y + insertHeight})`);
+                });
+            }
+        }
+
         this.currentGhostCBlock = {
             ...originalState,
             ghostPath: resizedPath,
@@ -192,7 +243,7 @@ export class GhostBlock {
             return;
         }
 
-        const { element, originalPath, originalHeight, originalInnerHeight, ghostPath, ghostHeight, ghostInnerHeight } = this.currentGhostCBlock;
+        const { element, originalPath, originalHeight, originalInnerHeight, ghostPath, ghostHeight, ghostInnerHeight, blocksAfterPositions } = this.currentGhostCBlock;
         const pathElement = element.querySelector('path');
         const currentPath = pathElement?.getAttribute('d');
         if (pathElement && typeof originalPath === 'string' && typeof ghostPath === 'string' && currentPath === ghostPath) {
@@ -213,6 +264,16 @@ export class GhostBlock {
             } else {
                 delete element.dataset.innerHeight;
             }
+        }
+
+        // Возвращаем блоки после c-block на исходные позиции
+        if (blocksAfterPositions && blocksAfterPositions.size > 0) {
+            blocksAfterPositions.forEach((position, blockId) => {
+                const block = this.containerSVG.querySelector(`[data-instance-id="${blockId}"]`);
+                if (block) {
+                    block.setAttribute('transform', `translate(${position.x}, ${position.y})`);
+                }
+            });
         }
 
         this.currentGhostCBlock = null;

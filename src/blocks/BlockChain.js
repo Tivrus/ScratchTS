@@ -34,6 +34,36 @@ export function getChainBlocks(startBlock, workspaceSVG) {
 }
 
 /**
+ * Получить все блоки в цепи включая внутренние блоки c-block (рекурсивно)
+ * @param {SVGElement} startBlock - Начальный блок цепи
+ * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
+ * @returns {Array<SVGElement>} Массив всех блоков (цепь + внутренние блоки c-block)
+ */
+export function getAllChainBlocks(startBlock, workspaceSVG) {
+    if (!startBlock) return [];
+    
+    const allBlocks = [];
+    const chain = getChainBlocks(startBlock, workspaceSVG);
+    
+    // Для каждого блока в цепи
+    chain.forEach(block => {
+        allBlocks.push(block);
+        
+        // Если это c-block, добавляем все его внутренние блоки рекурсивно
+        if (isCBlock(block)) {
+            const innerBlocks = getInnerBlocks(block, workspaceSVG);
+            if (innerBlocks.length > 0) {
+                // Рекурсивно получаем все блоки из внутренней цепи
+                const innerChainBlocks = getAllChainBlocks(innerBlocks[0], workspaceSVG);
+                allBlocks.push(...innerChainBlocks);
+            }
+        }
+    });
+    
+    return allBlocks;
+}
+
+/**
  * Получить верхний блок цепи (блок с topLevel="true")
  * @param {SVGElement} block - Любой блок в цепи
  * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области

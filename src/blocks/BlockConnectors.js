@@ -3,7 +3,6 @@
  */
 
 import { BLOCK_FORMS } from '../utils/Constants.js';
-import { hasInnerBlocks } from './CBlock.js';
 
 const CONNECTOR_THRESHOLD = 50;
 let DEBUG_MODE = false;
@@ -13,7 +12,6 @@ export const ConnectorType = {
     TOP: 'top',
     BOTTOM: 'bottom',
     INNER_TOP: 'inner-top',
-    INNER_BOTTOM: 'inner-bottom',
     MIDDLE: 'middle' // Средний коннектор между соединенными блоками
 };
 
@@ -54,10 +52,9 @@ export function getBlockConnectors(blockType, block = null) {
                 delete connectors[ConnectorType.BOTTOM];
             }
             
-            // Если внутри есть блоки, меняем INNER_TOP на INNER_BOTTOM
-            if (hasInnerBlocks(block)) {
-                delete connectors[ConnectorType.INNER_TOP];
-                connectors[ConnectorType.INNER_BOTTOM] = true;
+            // Если c-block имеет следующий блок (bottomConnected), добавляем средний коннектор
+            if (block.dataset.bottomConnected === 'true' && block.dataset.next) {
+                connectors[ConnectorType.MIDDLE] = true;
             }
         } else {
             // Для обычных блоков
@@ -112,11 +109,7 @@ export function getConnectorPosition(block, connectorType) {
         },
         [ConnectorType.INNER_TOP]: {
             x: connectorX + 16, // Смещение вправо для внутренних блоков
-            y: blockRect.top + 48 + 1
-        },
-        [ConnectorType.INNER_BOTTOM]: {
-            x: connectorX + 16, // Смещение вправо для внутренних блоков
-            y: blockRect.bottom - bottomOffset - 32 + 1
+            y: blockRect.top + 48 + 1 // Позиция внутреннего коннектора
         },
         [ConnectorType.MIDDLE]: {
             x: connectorX,
@@ -151,7 +144,7 @@ export function findNearestConnector(draggedBlock, allBlocks) {
             if (!draggedPos) return;
 
             Object.keys(targetConnectors).forEach(targetConnectorType => {
-                if (!canConnect(draggedConnectorType, targetConnectorType)) return;
+                if (!canConnect(draggedConnectorType, targetConnectorType, draggedBlock, targetBlock)) return;
 
                 const targetPos = getConnectorPosition(targetBlock, targetConnectorType);
                 if (!targetPos) return;
@@ -178,11 +171,10 @@ export function findNearestConnector(draggedBlock, allBlocks) {
     return nearestConnection;
 }
 
-function canConnect(draggedConnector, targetConnector) {
+function canConnect(draggedConnector, targetConnector, draggedBlock, targetBlock) {
     const validConnections = {
         [ConnectorType.TOP]: [
             ConnectorType.BOTTOM,
-            ConnectorType.INNER_BOTTOM,
             ConnectorType.INNER_TOP, // Можно вставлять сверху в пустой c-block
             ConnectorType.MIDDLE
         ],
@@ -190,9 +182,12 @@ function canConnect(draggedConnector, targetConnector) {
             ConnectorType.TOP
         ],
         [ConnectorType.INNER_TOP]: [ConnectorType.TOP],  // c-block принимает блоки сверху внутрь
-        [ConnectorType.INNER_BOTTOM]: [ConnectorType.TOP],  // c-block принимает блоки внизу внутрь
         [ConnectorType.MIDDLE]: [ConnectorType.TOP] // Средний коннектор принимает блоки сверху
     };
+
+    if (targetConnector === ConnectorType.MIDDLE && draggedBlock?.dataset?.type === 'c-block') {
+        return false;
+    }
 
     return validConnections[draggedConnector]?.includes(targetConnector) || false;
 }
@@ -264,8 +259,6 @@ export function updateDebugOverlay(workspaceSVG) {
                 offsetY = (zoneHeight / 2) - 5; // Зона ниже блока
             } else if (connectorType === ConnectorType.INNER_TOP) {
                 offsetY = (zoneHeight / 2) - 5; // Зона внутри блока, ниже коннектора
-            } else if (connectorType === ConnectorType.INNER_BOTTOM) {
-                offsetY = -(zoneHeight / 2) + 5; // Зона внутри блока, выше коннектора
             }
             
             const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
