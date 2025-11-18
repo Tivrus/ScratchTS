@@ -1,27 +1,32 @@
 {
   "blocks": {
-    "201dd124-90df-4f6a-87ff-e5171cabea2b": {
-      "opcode": "motion_move_steps",
-      "next": "76988591-59cb-44fa-b6dd-335138c3c0c2",
-      "parent": null,
-      "inputs": {},
-      "fields": {},
-      "topLevel": true,
-      "x": 598,
-      "y": 389
-    },
-    "76988591-59cb-44fa-b6dd-335138c3c0c2": {
-      "opcode": "turn_left_steps",
-      "next": "a1506529-ad14-4115-b758-dc40e2ef0951",
-      "parent": "201dd124-90df-4f6a-87ff-e5171cabea2b",
+    "raojmK2ie2Ayj9pHU5lI": {
+      "opcode": "motion_smth",
+      "next": null,
+      "parent": "V3H1dTBj2WGgamTERIza",
       "inputs": {},
       "fields": {},
       "topLevel": false
     },
-    "a1506529-ad14-4115-b758-dc40e2ef0951": {
-      "opcode": "control_stop",
+    "V3H1dTBj2WGgamTERIza": {
+      "opcode": "control_repeat",
+      "next": "T73WobSVSj%j33ZDWG3X",
+      "parent": null,
+      "inputs": {
+        "SUBSTACK": [
+          2,
+          "raojmK2ie2Ayj9pHU5lI"
+        ]
+      },
+      "fields": {},
+      "topLevel": true,
+      "x": 97,
+      "y": 156
+    },
+    "T73WobSVSj%j33ZDWG3X": {
+      "opcode": "motion_smth",
       "next": null,
-      "parent": "76988591-59cb-44fa-b6dd-335138c3c0c2",
+      "parent": "V3H1dTBj2WGgamTERIza",
       "inputs": {},
       "fields": {},
       "topLevel": false

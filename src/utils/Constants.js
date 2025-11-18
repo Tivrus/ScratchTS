@@ -13,7 +13,7 @@ export const BLOCK_FORMS = {
         viewBox: '-1 -1 154 58',
         width: 154,
         height: 58,
-        pathHeight: 48, // Реальная высота path (0 + 4 + 40 + 4)
+        pathHeight: 58, // Реальная высота path (0 + 4 + 40 + 4)
         topOffset: 0,
         bottomOffset: 9
     },
@@ -56,4 +56,11 @@ export const BLOCK_FORMS = {
 };
 
 export const DEFAULT_BLOCK_COLOR = '#4c97ff';
+
+// Константы для позиционирования блоков
+export const DEFAULT_BLOCK_HEIGHT = 58; // Стандартная высота блока
+export const CBLOCK_NESTED_X_OFFSET = 16; // Смещение по X для каждого уровня вложенности в c-block
+
+// SVG namespace
+export const SVG_NS = 'http://www.w3.org/2000/svg';
 

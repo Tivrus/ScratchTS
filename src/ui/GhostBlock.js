@@ -2,29 +2,34 @@
  * GhostBlock - визуализация места подключения блока
  */
 
-import { BLOCK_FORMS } from '../utils/Constants.js';
-import { ConnectorType } from '../blocks/BlockConnectors.js';
+import { BLOCK_FORMS, DEFAULT_BLOCK_HEIGHT } from '../utils/Constants.js';
+import { ConnectorType, getConnectorPosition } from '../blocks/BlockConnectors.js';
 import PathUtils from '../utils/PathUtils.js';
 import { getAllChainBlocks } from '../blocks/BlockChain.js';
-import { hasInnerBlocks, C_BLOCK_EMPTY_INNER_SPACE } from '../blocks/CBlock.js';
+import { hasInnerBlocks, C_BLOCK_EMPTY_INNER_SPACE, isCBlock, syncCBlockHeight, isBlockInsideCBlock } from '../blocks/CBlock.js';
+import { getTranslateValues } from '../utils/DOMUtils.js';
 
 export class GhostBlock {
     constructor(containerSVG) {
         this.containerSVG = containerSVG;
         this.ghostElement = null;
         this.currentGhostCBlock = null;
+        this._debug = () => typeof window !== 'undefined' && !!window.__CB_DEBUG;
+        this._log = (...args) => { if (this._debug()) console.log('[GhostBlock]', ...args); };
     }
 
     show(draggedBlock, targetBlock, targetConnectorPos, draggedConnectorPos, connectorType = null) {
         this.removeGhostElement();
 
         if (!draggedBlock || !targetBlock || !targetConnectorPos || !draggedConnectorPos) {
+            this._log('show(): invalid inputs -> releaseCBlockGhostResize()');
             this.releaseCBlockGhostResize();
             return;
         }
 
         let cBlockToResize = null;
         const insertHeight = this.getBlockPathHeight(draggedBlock);
+        this._log('show(): connectorType=', connectorType, 'target=', targetBlock?.dataset?.instanceId, 'dragged=', draggedBlock?.dataset?.instanceId, 'insertHeight=', insertHeight);
         
         // Случай 1: Вставка в пустой c-block (INNER_TOP коннектор)
         if (connectorType === ConnectorType.INNER_TOP && targetBlock.dataset.type === 'c-block') {
@@ -32,15 +37,28 @@ export class GhostBlock {
         } 
         // Случай 2-4: Вставка к внутренним блокам c-block (MIDDLE, TOP, BOTTOM коннекторы)
         else if ([ConnectorType.MIDDLE, ConnectorType.TOP, ConnectorType.BOTTOM].includes(connectorType)) {
-            // Проверяем, является ли родитель targetBlock c-block
-            if (targetBlock.dataset.parent) {
-                const parentId = targetBlock.dataset.parent;
-                const parentBlock = this.containerSVG.querySelector(`[data-instance-id="${parentId}"]`);
-                if (parentBlock && parentBlock.dataset.type === 'c-block') {
-                    cBlockToResize = parentBlock;
+            // Находим содержащий c-block для targetBlock (может быть прямым родителем или выше по иерархии)
+            const containingCBlock = this.findContainingCBlock(targetBlock);
+            
+            // Применяем ghost resize только если:
+            // 1. targetBlock находится внутри c-block (не является самим c-block)
+            // 2. Или это не BOTTOM коннектор (для BOTTOM коннектора c-block не должен растягиваться)
+            if (containingCBlock) {
+                // Проверяем, что targetBlock действительно находится внутри c-block
+                // Если targetBlock - это сам c-block, то это внешний коннектор, и не нужно растягивать
+                if (targetBlock !== containingCBlock && isBlockInsideCBlock(containingCBlock, targetBlock, this.containerSVG)) {
+                    cBlockToResize = containingCBlock;
+                } else if (connectorType !== ConnectorType.BOTTOM && targetBlock !== containingCBlock) {
+                    // Для TOP и MIDDLE коннекторов, если targetBlock не сам c-block, то это внутренний блок
+                    cBlockToResize = containingCBlock;
                 }
+                this._log('show(): containingCBlock=', containingCBlock?.dataset?.instanceId, 'cBlockToResize=', cBlockToResize?.dataset?.instanceId);
             }
         }
+        
+        // Используем локальную переменную для позиции коннектора, чтобы можно было обновить её после ghost resize
+        let actualConnectorPos = targetConnectorPos;
+        const prevGhostElement = this.currentGhostCBlock?.element || null;
         
         // Растягиваем c-block если нужно
         if (cBlockToResize) {
@@ -48,9 +66,30 @@ export class GhostBlock {
             const effectiveInsertHeight = hasBlocksInside
                 ? insertHeight
                 : Math.max(0, insertHeight - C_BLOCK_EMPTY_INNER_SPACE);
+            this._log('show(): applyCBlockGhostResize height=', effectiveInsertHeight, 'hasBlocksInside=', hasBlocksInside);
             this.applyCBlockGhostResize(cBlockToResize, effectiveInsertHeight);
+            
+            // Если это нижний внешний коннектор c-block, пересчитываем позицию коннектора
+            // после применения ghost resize, так как размер c-block изменился
+            if (connectorType === ConnectorType.BOTTOM && targetBlock === cBlockToResize) {
+                const updatedConnectorPos = getConnectorPosition(cBlockToResize, ConnectorType.BOTTOM);
+                if (updatedConnectorPos) {
+                    actualConnectorPos = updatedConnectorPos;
+                    this._log('show(): updated bottom connector position after ghost resize', actualConnectorPos);
+                }
+            }
         } else {
+            this._log('show(): no cBlockToResize -> releaseCBlockGhostResize()');
             this.releaseCBlockGhostResize();
+            // ВАЖНО: если только что убрали ghost-растяжение c-block и нацеливаемся на его нижний внешний коннектор,
+            // нужно пересчитать позицию коннектора уже по "сжатому" состоянию
+            if (connectorType === ConnectorType.BOTTOM && targetBlock && targetBlock === prevGhostElement && targetBlock.dataset.type === 'c-block') {
+                const updatedAfterRelease = getConnectorPosition(targetBlock, ConnectorType.BOTTOM);
+                if (updatedAfterRelease) {
+                    actualConnectorPos = updatedAfterRelease;
+                    this._log('show(): recomputed bottom connector after release', actualConnectorPos);
+                }
+            }
         }
 
         const blockClone = draggedBlock.cloneNode(true);
@@ -76,13 +115,15 @@ export class GhostBlock {
         const offsetX = draggedConnectorPos.x - draggedBlockRect.left;
         const offsetY = draggedConnectorPos.y - draggedBlockRect.top;
 
-        let finalX = targetConnectorPos.x - workspaceRect.left - offsetX;
-        let finalY = targetConnectorPos.y - workspaceRect.top - offsetY;
+        let finalX = actualConnectorPos.x - workspaceRect.left - offsetX;
+        let finalY = actualConnectorPos.y - workspaceRect.top - offsetY;
 
         if (connectorType === ConnectorType.MIDDLE) {
             const targetType = targetBlock.dataset.type;
             const targetForm = BLOCK_FORMS[targetType];
-            const targetPathHeight = targetForm?.pathHeight || parseFloat(targetBlock.dataset.height) || 58;
+            // ВАЖНО: сначала используем актуальную высоту из dataset.height (c-block может быть растянут),
+            // затем падаем обратно на высоту формы
+            const targetPathHeight = (parseFloat(targetBlock.dataset.height) || 0)-10 || targetForm?.pathHeight-10 || DEFAULT_BLOCK_HEIGHT;
 
             const draggedType = draggedBlock.dataset.type;
             const draggedForm = BLOCK_FORMS[draggedType];
@@ -90,9 +131,11 @@ export class GhostBlock {
 
             finalX = targetTransform.x;
             finalY = targetTransform.y + targetPathHeight - draggedTopOffset;
+            this._log('show(): MIDDLE final pos', { finalX, finalY, targetPathHeight, draggedTopOffset });
         } else {
             finalX += 1;
             finalY += 1;
+            this._log('show(): non-MIDDLE final pos', { finalX, finalY });
         }
 
         blockClone.setAttribute('transform', `translate(${finalX}, ${finalY})`);
@@ -104,32 +147,46 @@ export class GhostBlock {
     
     removeGhostElement() {
         if (this.ghostElement) {
+            this._log('removeGhostElement()');
             this.ghostElement.remove();
             this.ghostElement = null;
         }
     }
 
     getTranslateValues(transformAttr) {
-        if (!transformAttr) {
-            return { x: 0, y: 0 };
-        }
-        const match = /translate\(([^,]+),\s*([^)]+)\)/.exec(transformAttr);
-        if (match) {
-            return {
-                x: parseFloat(match[1]) || 0,
-                y: parseFloat(match[2]) || 0
-            };
-        }
-        return { x: 0, y: 0 };
+        // Используем общую утилиту
+        return getTranslateValues(transformAttr);
     }
 
     hide() {
+        this._log('hide() -> removeGhostElement + releaseCBlockGhostResize');
         this.removeGhostElement();
         this.releaseCBlockGhostResize();
     }
 
     isVisible() {
         return this.ghostElement !== null;
+    }
+
+    /**
+     * Найти содержащий c-block для блока (может быть прямым родителем или выше по иерархии)
+     * @param {SVGElement} block - Блок для поиска
+     * @returns {SVGElement|null} C-block, содержащий данный блок, или null
+     */
+    findContainingCBlock(block) {
+        if (!block) return null;
+
+        let currentBlock = block;
+        while (currentBlock && currentBlock.dataset.parent) {
+            const parentId = currentBlock.dataset.parent;
+            const parentBlock = this.containerSVG.querySelector(`[data-instance-id="${parentId}"]`);
+            if (!parentBlock) break;
+            if (isCBlock(parentBlock)) {
+                return parentBlock;
+            }
+            currentBlock = parentBlock;
+        }
+        return null;
     }
 
     getBlockPathHeight(block) {
@@ -156,19 +213,26 @@ export class GhostBlock {
 
     applyCBlockGhostResize(cBlock, insertHeight) {
         if (!cBlock || insertHeight <= 0) {
+            this._log('applyCBlockGhostResize(): invalid args -> release');
             this.releaseCBlockGhostResize();
             return;
         }
 
         const current = this.currentGhostCBlock;
         if (current && current.element === cBlock && current.insertHeight === insertHeight) {
+            this._log('applyCBlockGhostResize(): same params, skip');
             return;
         }
 
         this.releaseCBlockGhostResize();
 
+        // Синхронизируем высоту c-block перед применением ghost resize
+        // Это важно, если блоки были удалены из c-block, но размер еще не обновлен
+        syncCBlockHeight(cBlock, this.containerSVG);
+
         const pathElement = cBlock.querySelector('path');
         if (!pathElement) {
+            this._log('applyCBlockGhostResize(): path not found');
             return;
         }
 
@@ -187,6 +251,7 @@ export class GhostBlock {
             const nextBlock = this.containerSVG.querySelector(`[data-instance-id="${nextBlockId}"]`);
             if (nextBlock) {
                 const blocksAfter = getAllChainBlocks(nextBlock, this.containerSVG);
+                this._log('applyCBlockGhostResize(): saving positions of blocksAfter', blocksAfter.map(b => b.dataset.instanceId));
                 blocksAfter.forEach(block => {
                     const transform = this.getTranslateValues(block.getAttribute('transform'));
                     originalState.blocksAfterPositions.set(block.dataset.instanceId, { x: transform.x, y: transform.y });
@@ -223,9 +288,12 @@ export class GhostBlock {
             const nextBlock = this.containerSVG.querySelector(`[data-instance-id="${nextBlockId}"]`);
             if (nextBlock) {
                 const blocksAfter = getAllChainBlocks(nextBlock, this.containerSVG);
+                this._log('applyCBlockGhostResize(): shifting blocksAfter by', insertHeight, blocksAfter.map(b => b.dataset.instanceId));
                 blocksAfter.forEach(block => {
                     const transform = this.getTranslateValues(block.getAttribute('transform'));
-                    block.setAttribute('transform', `translate(${transform.x}, ${transform.y + insertHeight})`);
+                    const newY = transform.y + insertHeight;
+                    
+                    block.setAttribute('transform', `translate(${transform.x}, ${newY})`);
                 });
             }
         }
@@ -236,6 +304,7 @@ export class GhostBlock {
             ghostHeight,
             ghostInnerHeight
         };
+        this._log('applyCBlockGhostResize(): applied', { cBlock: cBlock.dataset.instanceId, ghostHeight, ghostInnerHeight, insertHeight });
     }
 
     releaseCBlockGhostResize() {
@@ -246,6 +315,7 @@ export class GhostBlock {
         const { element, originalPath, originalHeight, originalInnerHeight, ghostPath, ghostHeight, ghostInnerHeight, blocksAfterPositions } = this.currentGhostCBlock;
         const pathElement = element.querySelector('path');
         const currentPath = pathElement?.getAttribute('d');
+        this._log('releaseCBlockGhostResize(): restoring for', element?.dataset?.instanceId);
         if (pathElement && typeof originalPath === 'string' && typeof ghostPath === 'string' && currentPath === ghostPath) {
             pathElement.setAttribute('d', originalPath);
         }
@@ -268,15 +338,19 @@ export class GhostBlock {
 
         // Возвращаем блоки после c-block на исходные позиции
         if (blocksAfterPositions && blocksAfterPositions.size > 0) {
+            this._log('releaseCBlockGhostResize(): restoring positions for blocksAfter', Array.from(blocksAfterPositions.keys()));
             blocksAfterPositions.forEach((position, blockId) => {
                 const block = this.containerSVG.querySelector(`[data-instance-id="${blockId}"]`);
                 if (block) {
+                    const current = this.getTranslateValues(block.getAttribute('transform'));
+                    
                     block.setAttribute('transform', `translate(${position.x}, ${position.y})`);
                 }
             });
         }
 
         this.currentGhostCBlock = null;
+        this._log('releaseCBlockGhostResize(): cleared state');
     }
 }
 

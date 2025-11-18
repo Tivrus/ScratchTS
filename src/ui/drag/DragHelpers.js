@@ -1,4 +1,7 @@
-import { BLOCK_FORMS } from '../../utils/Constants.js';
+import { BLOCK_FORMS, DEFAULT_BLOCK_HEIGHT } from '../../utils/Constants.js';
+import { getTranslateValues } from '../../utils/DOMUtils.js';
+
+export { getTranslateValues };
 
 export function getColorFromTemplate(template) {
     if (template?.dataset?.color) {
@@ -38,28 +41,14 @@ export function isPointerInsideTrash(trashCan, event) {
         event.clientY >= rect.top && event.clientY <= rect.bottom;
 }
 
-export function getTranslateValues(transformAttr) {
-    if (!transformAttr) {
-        return { x: 0, y: 0 };
-    }
-    const match = /translate\(([^,]+),\s*([^)]+)\)/.exec(transformAttr);
-    if (match) {
-        return {
-            x: parseFloat(match[1]) || 0,
-            y: parseFloat(match[2]) || 0
-        };
-    }
-    return { x: 0, y: 0 };
-}
-
 export function getBlockPathHeight(block) {
     const blockType = block.dataset.type;
     const blockForm = BLOCK_FORMS[blockType];
 
     if (blockType === 'c-block') {
-        return parseFloat(block.dataset.height) || blockForm?.pathHeight || 58;
+        return parseFloat(block.dataset.height) || blockForm?.pathHeight || DEFAULT_BLOCK_HEIGHT;
     }
 
-    return blockForm?.pathHeight || parseFloat(block.dataset.height) || 58;
+    return blockForm?.pathHeight || parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT;
 }
 

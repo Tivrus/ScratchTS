@@ -3,7 +3,8 @@
  */
 
 import { getChainBlocks } from './BlockChain.js';
-import { BLOCK_FORMS } from '../utils/Constants.js';
+import { BLOCK_FORMS, DEFAULT_BLOCK_HEIGHT } from '../utils/Constants.js';
+import { getTranslateValues } from '../utils/DOMUtils.js';
 
 /**
  * Проверить, является ли блок специальным (start-block или stop-block)
@@ -44,25 +45,6 @@ export function hasBottomConnector(block) {
 }
 
 /**
- * Получить значения translate из transform атрибута
- * @param {string} transformAttr - Значение атрибута transform
- * @returns {Object} Объект с x и y координатами
- */
-function getTranslateValues(transformAttr) {
-    if (!transformAttr) {
-        return { x: 0, y: 0 };
-    }
-    const match = /translate\(([^,]+),\s*([^)]+)\)/.exec(transformAttr);
-    if (match) {
-        return {
-            x: parseFloat(match[1]) || 0,
-            y: parseFloat(match[2]) || 0
-        };
-    }
-    return { x: 0, y: 0 };
-}
-
-/**
  * Получить реальную высоту path блока
  * @param {SVGElement} block - Блок
  * @returns {number} Высота path блока
@@ -70,7 +52,7 @@ function getTranslateValues(transformAttr) {
 function getBlockPathHeight(block) {
     const blockType = block.dataset.type;
     const blockForm = BLOCK_FORMS[blockType];
-    return blockForm?.pathHeight || parseFloat(block.dataset.height) || 58;
+    return blockForm?.pathHeight || parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT;
 }
 
 /**

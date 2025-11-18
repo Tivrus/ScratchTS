@@ -9,6 +9,7 @@ import {
     isBlockInsideSidebar,
     isPointerInsideTrash
 } from './DragHelpers.js';
+import { requestAnimFrame, cancelAnimFrame } from '../../utils/DOMUtils.js';
 
 export default class DragSession {
     constructor({
@@ -33,6 +34,9 @@ export default class DragSession {
         this.animator = animator;
 
         this.activeDrag = null;
+        this.animationFrameId = null;
+        this.lastUpdateTime = 0;
+        this.updateThrottle = 16; // ~60fps
 
         this.handlePointerMove = this.handlePointerMove.bind(this);
         this.handlePointerUp = this.handlePointerUp.bind(this);
@@ -92,6 +96,25 @@ export default class DragSession {
 
         event.preventDefault();
 
+        // Сохраняем последние координаты для использования в requestAnimationFrame
+        this.activeDrag.lastEvent = event;
+
+        // Используем requestAnimationFrame для плавной анимации
+        if (this.animationFrameId !== null) {
+            cancelAnimFrame(this.animationFrameId);
+        }
+
+        this.animationFrameId = requestAnimFrame(() => {
+            this.updateDragPosition();
+        });
+    }
+
+    updateDragPosition() {
+        if (!this.activeDrag || !this.activeDrag.lastEvent) {
+            return;
+        }
+
+        const event = this.activeDrag.lastEvent;
         const { element, offsetX, offsetY, isDraggingChain } = this.activeDrag;
         const overlayRect = this.dragOverlaySVG.getBoundingClientRect();
 
@@ -112,8 +135,14 @@ export default class DragSession {
             element.setAttribute('transform', `translate(${newX}, ${newY})`);
         }
 
-        const allWorkspaceBlocks = Array.from(this.workspaceSVG.querySelectorAll('.workspace-block'));
-        const nearestConnection = findNearestConnector(element, allWorkspaceBlocks);
+        // Кэшируем блоки для оптимизации (обновляем только при необходимости)
+        const now = Date.now();
+        if (!this.cachedWorkspaceBlocks || (now - this.lastUpdateTime) > 50) {
+            this.cachedWorkspaceBlocks = Array.from(this.workspaceSVG.querySelectorAll('.workspace-block'));
+            this.lastUpdateTime = now;
+        }
+
+        const nearestConnection = findNearestConnector(element, this.cachedWorkspaceBlocks);
 
         if (nearestConnection) {
             const targetConnectorPos = getConnectorPosition(nearestConnection.targetBlock, nearestConnection.targetConnector);
@@ -142,7 +171,8 @@ export default class DragSession {
             this.chainSplitManager.closeSplit();
         }
 
-        updateDebugOverlay(this.workspaceSVG);
+        updateDebugOverlay(this.workspaceSVG, this.dragOverlaySVG);
+        this.animationFrameId = null;
     }
 
     handlePointerUp(event) {
@@ -259,12 +289,21 @@ export default class DragSession {
     cleanup() {
         window.removeEventListener('pointermove', this.handlePointerMove);
         window.removeEventListener('pointerup', this.handlePointerUp);
+        
+        if (this.animationFrameId !== null) {
+            cancelAnimFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+        
+        this.cachedWorkspaceBlocks = null;
+        this.lastUpdateTime = 0;
+        
         this.ghostBlock.hide();
         this.chainSplitManager.closeSplit();
     }
 
     notifyWorkspaceChange() {
-        updateDebugOverlay(this.workspaceSVG);
+        updateDebugOverlay(this.workspaceSVG, this.dragOverlaySVG);
         saveWorkspaceState(this.workspaceSVG);
     }
 }

@@ -1,43 +1,48 @@
-import { BLOCK_FORMS, DEFAULT_BLOCK_COLOR } from '../utils/Constants.js';
+import { BLOCK_FORMS, DEFAULT_BLOCK_COLOR, SVG_NS } from '../utils/Constants.js';
 import PathUtils from '../utils/PathUtils.js';
-
-const SVG_NS = 'http://www.w3.org/2000/svg';
 
 function createSVGElement(tag) {
     return document.createElementNS(SVG_NS, tag);
 }
 
-function applySize(svg, { width, height, viewBox }) {
-    if (viewBox) {
-        svg.setAttribute('viewBox', viewBox);
+// Генерация instanceId в формате base64-подобной строки (20 символов)
+function generateInstanceId() {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789/%+';
+    const bytes = new Uint8Array(15);
+    
+    if (crypto && crypto.getRandomValues) {
+        crypto.getRandomValues(bytes);
+    } else {
+        // Fallback для старых браузеров
+        for (let i = 0; i < bytes.length; i++) {
+            bytes[i] = Math.floor(Math.random() * 256);
+        }
     }
-
-    if (typeof width === 'number') {
-        svg.setAttribute('width', String(width));
-    }
-
-    if (typeof height === 'number') {
-        svg.setAttribute('height', String(height));
-    }
+    let result = '';
+    for (let i = 0; i < bytes.length; i++) {
+        result += alphabet[bytes[i] % alphabet.length];}
+    while (result.length < 20) {
+        const randomIndex = Math.floor(Math.random() * alphabet.length);
+        result += alphabet[randomIndex];}
+    return result.substring(0, 20);
 }
 
+// Функция для затемнения цвета
 function darkenColor(color, factor = 0.7) {
     if (!color || typeof color !== 'string') {
-        return 'rgba(0,0,0,0.7)';
-    }
+        return 'rgba(0,0,0,0.7)';}
 
     const hex = color.replace('#', '');
     if (hex.length !== 6) {
-        return 'rgba(0,0,0,0.7)';
-    }
+        return 'rgba(0,0,0,0.7)';}
 
     const r = Math.floor(parseInt(hex.substring(0, 2), 16) * factor);
     const g = Math.floor(parseInt(hex.substring(2, 4), 16) * factor);
     const b = Math.floor(parseInt(hex.substring(4, 6), 16) * factor);
-
     return `rgb(${r},${g},${b})`;
 }
 
+// Функция для создания текстовых элементов (label)
 function createLabels(labels = []) {
     return labels.map((label) => {
         const textElement = createSVGElement('text');
@@ -56,17 +61,11 @@ function createLabels(labels = []) {
 }
 
 function createBlockSVGContent(blockConfig, { color } = {}) {
-    if (!blockConfig) {
-        return null;
-    }
-
     const { type, labels, size } = blockConfig;
     const form = BLOCK_FORMS[type];
-
     if (!form) {
         console.warn(`BlockFactory: form for type "${type}" is not defined.`);
-        return null;
-    }
+        return null}
 
     const adjustedForm = { ...form };
     let pathData = form.path;
@@ -74,32 +73,19 @@ function createBlockSVGContent(blockConfig, { color } = {}) {
     if (Array.isArray(size) && size.length >= 2) {
         const [sign, amountRaw] = size;
         const amount = Number(amountRaw);
-        if (!Number.isNaN(amount) && amount !== 0 && (sign === '+' || sign === '-')) {
+        if (amount !== 0 && (sign === '+' || sign === '-')) {
             const delta = sign === '-' ? -amount : amount;
-            const resizeConfig = PathUtils.getBlockResizeConfig(type) ?? {};
-            const hIndices = resizeConfig.hIndices ?? [];
-            const vIndices = resizeConfig.vIndices ?? [];
+            const resizeConfig = PathUtils.getBlockResizeConfig(type);
+            const hIndices = resizeConfig.hIndices;
 
-            if (hIndices.length || vIndices.length) {
-                pathData = PathUtils.resizeBlockPath(pathData, {
-                    horizontal: hIndices.length ? delta : 0,
-                    vertical: vIndices.length ? delta : 0,
-                    hIndices,
-                    vIndices
-                });
-            }
-
-            if (typeof adjustedForm.width === 'number') {
-                adjustedForm.width += delta;
-            }
-
-            if (typeof adjustedForm.viewBox === 'string') {
-                const viewBoxParts = adjustedForm.viewBox.split(/\s+/).map(Number);
-                if (viewBoxParts.length === 4 && viewBoxParts.every((value) => !Number.isNaN(value))) {
-                    viewBoxParts[2] += delta;
-                    adjustedForm.viewBox = viewBoxParts.join(' ');
-                }
-            }
+            pathData = PathUtils.resizeBlockPath(pathData, {
+                horizontal: delta,
+                hIndices});
+            
+            adjustedForm.width += delta;
+            const viewBoxParts = adjustedForm.viewBox.split(/\s+/).map(Number);
+            viewBoxParts[2] += delta;
+            adjustedForm.viewBox = viewBoxParts.join(' ');
         }
     }
 
@@ -125,16 +111,8 @@ function createBlockSVGContent(blockConfig, { color } = {}) {
 }
 
 export function createBlockTemplate(blockConfig, { color } = {}) {
-    if (!blockConfig) {
-        return null;
-    }
-
     const { id, type } = blockConfig;
     const svgContent = createBlockSVGContent(blockConfig, { color });
-
-    if (!svgContent) {
-        return null;
-    }
 
     const { pathElement, labelElements, width, height, viewBox } = svgContent;
 
@@ -145,44 +123,25 @@ export function createBlockTemplate(blockConfig, { color } = {}) {
     template.dataset.color = color ?? DEFAULT_BLOCK_COLOR;
     template._blockConfig = blockConfig;
 
-    if (typeof width === 'number') {
-        template.style.width = `${width}px`;
-    }
-    if (typeof height === 'number') {
-        template.style.height = `${height}px`;
-    }
+    template.style.width = `${width}px`;
+    template.style.height = `${height}px`;
 
     const svg = createSVGElement('svg');
     svg.classList.add('block-svg');
-    if (viewBox) {
-        svg.setAttribute('viewBox', viewBox);
-    }
-    if (typeof width === 'number') {
-        svg.setAttribute('width', String(width));
-    }
-    if (typeof height === 'number') {
-        svg.setAttribute('height', String(height));
-    }
+    svg.setAttribute('viewBox', viewBox);
+    svg.setAttribute('width', String(width));
+    svg.setAttribute('height', String(height));
 
     svg.appendChild(pathElement);
     labelElements.forEach((label) => svg.appendChild(label));
 
     template.appendChild(svg);
-
     return template;
 }
 
 export function createWorkspaceBlock(blockConfig, { color, x = 0, y = 0 } = {}) {
-    if (!blockConfig) {
-        return null;
-    }
-
     const { id, type } = blockConfig;
     const svgContent = createBlockSVGContent(blockConfig, { color });
-
-    if (!svgContent) {
-        return null;
-    }
 
     const { pathElement, labelElements, width, height } = svgContent;
 
@@ -193,7 +152,7 @@ export function createWorkspaceBlock(blockConfig, { color, x = 0, y = 0 } = {}) 
     group.dataset.color = color ?? DEFAULT_BLOCK_COLOR;
     group.dataset.width = String(width);
     group.dataset.height = String(height);
-    group.dataset.instanceId = crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    group.dataset.instanceId = generateInstanceId();
     group.setAttribute('transform', `translate(${x}, ${y})`);
     group._blockConfig = blockConfig;
 

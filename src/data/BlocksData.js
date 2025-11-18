@@ -96,7 +96,19 @@ export const blocks = [
             }
         ]
     },
-
+    {
+        id: 'motion_smth',
+        category: 'Control',
+        type: 'default-block',
+        labels: [
+            {
+                text: 'SMT',
+                pos: [24, 28]
+            }
+        ],
+        size: ['+', 10],
+        fields: []
+    },
     {
         id: 'control_stop',
         category: 'Control',

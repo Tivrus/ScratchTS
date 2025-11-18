@@ -9,30 +9,12 @@ function findCategory(categoryId) {
 export class BlockLibrary {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
-
-        if (!this.container) {
-            console.warn(`BlockLibrary: container with id "${containerId}" not found.`);
-        }
     }
 
-    clear() {
-        if (!this.container) {
-            return;
-        }
-
-        this.container.innerHTML = '';
-    }
+    clear() {this.container.innerHTML = '';}
 
     loadBlocksForCategory(categoryId) {
-        if (!this.container) {
-            return;
-        }
-
         this.clear();
-
-        if (!categoryId) {
-            return;
-        }
 
         const category = findCategory(categoryId);
         const categoryColor = category?.color;

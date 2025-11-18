@@ -220,6 +220,10 @@ body {
     pointer-events: none;
 }
 
+#connector-debug-overlay {
+    pointer-events: none;
+}
+
 #drag-overlay .workspace-block {
     pointer-events: auto;
 }

@@ -83,7 +83,7 @@ export default class DragAndDropController {
     }
 
     initializeWorkspace() {
-        initDebugMode();
+        initDebugMode(this.workspaceSVG, this.dragOverlaySVG);
         initWorkspaceState(this.workspaceSVG);
         initBlockAlignment(this.workspaceSVG);
         syncAllCBlockHeights(this.workspaceSVG);

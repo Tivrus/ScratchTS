@@ -1,8 +1,6 @@
-/**
- * BlockAlignment - утилиты для выравнивания блоков по сетке
- */
 
 import { getChainBlocks } from '../blocks/BlockChain.js';
+import { getTranslateValues } from './DOMUtils.js';
 
 /**
  * Округлить число до ближайшего кратного заданному значению
@@ -14,24 +12,6 @@ function snapToGrid(value, gridSize = 10) {
     return Math.round(value / gridSize) * gridSize;
 }
 
-/**
- * Получить значения translate из transform атрибута
- * @param {string} transformAttr - Значение атрибута transform
- * @returns {Object} Объект с x и y координатами
- */
-function getTranslateValues(transformAttr) {
-    if (!transformAttr) {
-        return { x: 0, y: 0 };
-    }
-    const match = /translate\(([^,]+),\s*([^)]+)\)/.exec(transformAttr);
-    if (match) {
-        return {
-            x: parseFloat(match[1]) || 0,
-            y: parseFloat(match[2]) || 0
-        };
-    }
-    return { x: 0, y: 0 };
-}
 
 /**
  * Выровнять один блок по сетке

@@ -2,9 +2,10 @@
  * BlockConnectors - система коннекторов для соединения блоков
  */
 
-import { BLOCK_FORMS } from '../utils/Constants.js';
+import { BLOCK_FORMS, SVG_NS } from '../utils/Constants.js';
 
 const CONNECTOR_THRESHOLD = 50;
+const CBLOCK_MIDDLE_THRESHOLD = 25; // уменьшенная зона для внешнего MIDDLE у c-block с нижней цепью
 let DEBUG_MODE = false;
 let debugOverlay = null;
 
@@ -128,6 +129,12 @@ export function findNearestConnector(draggedBlock, allBlocks) {
     const draggedRect = draggedBlock.getBoundingClientRect();
     const draggedType = draggedBlock.dataset.type;
     const draggedConnectors = getBlockConnectors(draggedType, draggedBlock);
+    // Нельзя коннектить удерживаемый c-block его внутренними коннекторами
+    if (draggedType === 'c-block') {
+        delete draggedConnectors[ConnectorType.INNER_TOP];
+        // у перетаскиваемого c-block также не используем MIDDLE как исходящий
+        delete draggedConnectors[ConnectorType.MIDDLE];
+    }
 
     let nearestConnection = null;
     let minDistance = CONNECTOR_THRESHOLD;
@@ -149,13 +156,22 @@ export function findNearestConnector(draggedBlock, allBlocks) {
                 const targetPos = getConnectorPosition(targetBlock, targetConnectorType);
                 if (!targetPos) return;
 
+                // Пер-connectorный порог чувствительности
+                let localThreshold = CONNECTOR_THRESHOLD;
+                if (targetType === 'c-block' && targetConnectorType === ConnectorType.MIDDLE) {
+                    const hasExternalBelow = targetBlock.dataset.bottomConnected === 'true' && !!targetBlock.dataset.next;
+                    if (hasExternalBelow) {
+                        localThreshold = CBLOCK_MIDDLE_THRESHOLD;
+                    }
+                }
+
                 const distance = Math.sqrt(
                     Math.pow(draggedPos.x - targetPos.x, 2) +
                     Math.pow(draggedPos.y - targetPos.y, 2)
                 );
 
-                if (distance < minDistance) {
-                    minDistance = distance;
+                if (distance < Math.min(minDistance, localThreshold)) {
+                    minDistance = Math.min(minDistance, localThreshold);
                     nearestConnection = {
                         targetBlock,
                         targetConnector: targetConnectorType,
@@ -205,17 +221,19 @@ export function getBlockData(block) {
     };
 }
 
-export function enableDebugMode(workspaceSVG) {
+export function enableDebugMode(workspaceSVG, dragOverlaySVG = null) {
     DEBUG_MODE = true;
     
     if (!debugOverlay) {
-        debugOverlay = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        debugOverlay = document.createElementNS(SVG_NS, 'g');
         debugOverlay.setAttribute('id', 'connector-debug-overlay');
-        workspaceSVG.appendChild(debugOverlay);
+        // Добавляем в drag-overlay, чтобы быть поверх всех блоков
+        const targetSVG = dragOverlaySVG || workspaceSVG;
+        targetSVG.appendChild(debugOverlay);
     }
     
     console.log('[BlockConnectors] Debug mode enabled. Connector zones will be visualized.');
-    updateDebugOverlay(workspaceSVG);
+    updateDebugOverlay(workspaceSVG, dragOverlaySVG);
 }
 
 export function disableDebugMode() {
@@ -229,64 +247,116 @@ export function disableDebugMode() {
     console.log('[BlockConnectors] Debug mode disabled.');
 }
 
-export function updateDebugOverlay(workspaceSVG) {
+export function updateDebugOverlay(workspaceSVG, dragOverlaySVG = null) {
     if (!DEBUG_MODE || !debugOverlay) return;
     
     debugOverlay.innerHTML = '';
     
-    const blocks = workspaceSVG.querySelectorAll('.workspace-block:not(.ghost-block)');
-    blocks.forEach(block => {
+    // Получаем блоки из обоих контейнеров (workspace и drag-overlay)
+    const workspaceBlocks = Array.from(workspaceSVG.querySelectorAll('.workspace-block:not(.ghost-block)'));
+    const dragOverlayBlocks = dragOverlaySVG 
+        ? Array.from(dragOverlaySVG.querySelectorAll('.workspace-block:not(.ghost-block)'))
+        : [];
+    
+    // Объединяем блоки, исключая дубликаты
+    const allBlocks = [...workspaceBlocks];
+    dragOverlayBlocks.forEach(block => {
+        if (!allBlocks.find(b => b.dataset.instanceId === block.dataset.instanceId)) {
+            allBlocks.push(block);
+        }
+    });
+    
+    // Определяем, какой SVG использовать для координат (тот, где находится overlay)
+    const overlaySVG = dragOverlaySVG || workspaceSVG;
+    const overlayRect = overlaySVG.getBoundingClientRect();
+    
+    allBlocks.forEach(block => {
         const blockType = block.dataset.type;
         const connectors = getBlockConnectors(blockType, block);
-        const blockRect = block.getBoundingClientRect();
-        const workspaceRect = workspaceSVG.getBoundingClientRect();
+        
+        // Получаем позицию блока через transform, а не getBoundingClientRect
+        const transform = block.getAttribute('transform') || '';
+        const transformMatch = /translate\(([^,]+),\s*([^)]+)\)/.exec(transform);
+        const blockX = transformMatch ? parseFloat(transformMatch[1]) || 0 : 0;
+        const blockY = transformMatch ? parseFloat(transformMatch[2]) || 0 : 0;
+        
+        // Получаем размеры блока
+        const blockWidth = parseFloat(block.dataset.width) || 150;
+        const blockForm = BLOCK_FORMS[blockType];
+        const bottomOffset = blockForm?.bottomOffset || 0;
+        const topOffset = blockForm?.topOffset || 0;
         
         Object.keys(connectors).forEach(connectorType => {
             const pos = getConnectorPosition(block, connectorType);
             if (!pos) return;
             
-            const centerX = pos.x - workspaceRect.left;
-            const centerY = pos.y - workspaceRect.top;
+            // Преобразуем координаты коннектора в координаты overlay SVG
+            const centerX = pos.x - overlayRect.left;
+            const centerY = pos.y - overlayRect.top;
             
-            const zoneWidth = parseFloat(block.dataset.width) || blockRect.width;
-            const zoneHeight = CONNECTOR_THRESHOLD;
-            
-            // Смещение зоны от блока (5px внутрь блока, остальное снаружи)
-            let offsetY = 0;
-            if (connectorType === ConnectorType.TOP) {
-                offsetY = -(zoneHeight / 2) + 5; // Зона выше блока
-            } else if (connectorType === ConnectorType.BOTTOM) {
-                offsetY = (zoneHeight / 2) - 5; // Зона ниже блока
-            } else if (connectorType === ConnectorType.INNER_TOP) {
-                offsetY = (zoneHeight / 2) - 5; // Зона внутри блока, ниже коннектора
+            // Визуализируем реальный локальный порог
+            let zoneHeight = CONNECTOR_THRESHOLD;
+            if (blockType === 'c-block' && connectorType === ConnectorType.MIDDLE) {
+                const hasExternalBelow = block.dataset.bottomConnected === 'true' && !!block.dataset.next;
+                if (hasExternalBelow) {
+                    zoneHeight = CBLOCK_MIDDLE_THRESHOLD;
+                }
             }
             
-            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            // Центрируем зону по ширине блока
-            rect.setAttribute('x', blockRect.left - workspaceRect.left);
-            rect.setAttribute('y', centerY - zoneHeight / 2 + offsetY);
+            // Получаем позицию блока в viewport для правильного выравнивания зоны
+            const blockRect = block.getBoundingClientRect();
+            const blockLeftInOverlay = blockRect.left - overlayRect.left;
+            
+            // Ширина зоны должна соответствовать ширине блока
+            const zoneWidth = blockWidth;
+            
+            // Зона должна быть выровнена по левому краю блока, а не центрирована на коннекторе
+            // Коннектор находится на левом краю блока (с учетом viewBox offset)
+            const viewBoxXOffset = 1; // ViewBox начинается с (-1, -1)
+            const zoneX = blockLeftInOverlay + viewBoxXOffset;
+            
+            // Зона коннекта центрирована по Y относительно коннектора
+            let zoneY = centerY - zoneHeight / 2;
+            
+            // Для MIDDLE коннектора у c-block смещаем зону чуть ниже
+            if (blockType === 'c-block' && connectorType === ConnectorType.MIDDLE) {
+                const hasExternalBelow = block.dataset.bottomConnected === 'true' && !!block.dataset.next;
+                if (hasExternalBelow) {
+                    zoneY += 10; // Смещаем зону на 10px вниз
+                }
+            }
+            
+            const rect = document.createElementNS(SVG_NS, 'rect');
+            rect.setAttribute('x', zoneX);
+            rect.setAttribute('y', zoneY);
             rect.setAttribute('width', zoneWidth);
             rect.setAttribute('height', zoneHeight);
-            rect.setAttribute('fill', 'rgba(0, 255, 0, 0.2)');
+            rect.setAttribute('fill', 'rgba(0, 255, 0, 0.15)');
             rect.setAttribute('stroke', '#00ff00');
-            rect.setAttribute('stroke-width', '2');
+            rect.setAttribute('stroke-width', '1.5');
             rect.setAttribute('pointer-events', 'none');
+            rect.setAttribute('rx', '4');
+            rect.setAttribute('ry', '4');
             
-            const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            const dot = document.createElementNS(SVG_NS, 'circle');
             dot.setAttribute('cx', centerX);
             dot.setAttribute('cy', centerY);
-            dot.setAttribute('r', '4');
+            dot.setAttribute('r', '5');
             dot.setAttribute('fill', '#ff0000');
+            dot.setAttribute('stroke', '#ffffff');
+            dot.setAttribute('stroke-width', '1.5');
             dot.setAttribute('pointer-events', 'none');
             
-            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            label.setAttribute('x', centerX + 10);
-            label.setAttribute('y', centerY);
+            const label = document.createElementNS(SVG_NS, 'text');
+            label.setAttribute('x', centerX + 8);
+            label.setAttribute('y', centerY - 8);
             label.setAttribute('fill', '#00ff00');
-            label.setAttribute('font-size', '12');
+            label.setAttribute('font-size', '11');
             label.setAttribute('font-weight', 'bold');
+            label.setAttribute('font-family', 'Arial, sans-serif');
             label.textContent = connectorType;
             label.setAttribute('pointer-events', 'none');
+            label.setAttribute('style', 'text-shadow: 0 0 3px rgba(0,0,0,0.8);');
             
             debugOverlay.appendChild(rect);
             debugOverlay.appendChild(dot);
@@ -295,12 +365,13 @@ export function updateDebugOverlay(workspaceSVG) {
     });
 }
 
-export function initDebugMode() {
+export function initDebugMode(workspaceSVG = null, dragOverlaySVG = null) {
     if (typeof window !== 'undefined') {
         window.enableConnectorDebug = () => {
-            const workspaceSVG = document.querySelector('#block-container');
-            if (workspaceSVG) {
-                enableDebugMode(workspaceSVG);
+            const wsSVG = workspaceSVG || document.querySelector('#block-container');
+            const doSVG = dragOverlaySVG || document.querySelector('#drag-overlay-svg');
+            if (wsSVG) {
+                enableDebugMode(wsSVG, doSVG);
             } else {
                 console.error('[BlockConnectors] Workspace SVG not found');
             }

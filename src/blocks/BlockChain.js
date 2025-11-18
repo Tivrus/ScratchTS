@@ -1,9 +1,5 @@
-/**
- * BlockChain - управление цепями блоков
- * Цепь — это группа связанных блоков, которые можно перетаскивать как единое целое
- */
-
-import { isCBlock, getInnerBlocks, exportCBlockToJSON } from './CBlock.js';
+import { isCBlock, getInnerBlocks, exportCBlockToJSON, hasInnerBlocks } from './CBlock.js';
+import { getTranslateValues } from '../utils/DOMUtils.js';
 
 /**
  * Получить все блоки в цепи, начиная с указанного блока
@@ -21,7 +17,6 @@ export function getChainBlocks(startBlock, workspaceSVG) {
     while (currentBlock.dataset.next) {
         const nextBlockId = currentBlock.dataset.next;
         const nextBlock = workspaceSVG.querySelector(`[data-instance-id="${nextBlockId}"]`);
-        
         if (nextBlock) {
             chain.push(nextBlock);
             currentBlock = nextBlock;
@@ -33,12 +28,6 @@ export function getChainBlocks(startBlock, workspaceSVG) {
     return chain;
 }
 
-/**
- * Получить все блоки в цепи включая внутренние блоки c-block (рекурсивно)
- * @param {SVGElement} startBlock - Начальный блок цепи
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {Array<SVGElement>} Массив всех блоков (цепь + внутренние блоки c-block)
- */
 export function getAllChainBlocks(startBlock, workspaceSVG) {
     if (!startBlock) return [];
     
@@ -63,12 +52,6 @@ export function getAllChainBlocks(startBlock, workspaceSVG) {
     return allBlocks;
 }
 
-/**
- * Получить верхний блок цепи (блок с topLevel="true")
- * @param {SVGElement} block - Любой блок в цепи
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {SVGElement|null} Верхний блок цепи
- */
 export function getTopLevelBlock(block, workspaceSVG) {
     if (!block) return null;
     
@@ -89,22 +72,11 @@ export function getTopLevelBlock(block, workspaceSVG) {
     return currentBlock;
 }
 
-/**
- * Проверить, является ли блок верхним в цепи
- * @param {SVGElement} block - Блок для проверки
- * @returns {boolean} true если блок верхний в цепи
- */
+
 export function isTopLevelBlock(block) {
     return block && block.dataset.topLevel === 'true';
 }
 
-/**
- * Переместить всю цепь блоков
- * @param {SVGElement} topBlock - Верхний блок цепи
- * @param {number} deltaX - Смещение по X
- * @param {number} deltaY - Смещение по Y
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- */
 export function moveChain(topBlock, deltaX, deltaY, workspaceSVG) {
     const chain = getChainBlocks(topBlock, workspaceSVG);
     
@@ -138,9 +110,7 @@ export function breakChain(upperBlock, lowerBlock) {
  * @param {SVGElement} upperChainBottom - Нижний блок верхней цепи
  * @param {SVGElement} lowerChainTop - Верхний блок нижней цепи
  */
-export function connectChains(upperChainBottom, lowerChainTop) {
-    if (!upperChainBottom || !lowerChainTop) return;
-    
+export function connectChains(upperChainBottom, lowerChainTop) {    
     upperChainBottom.dataset.next = lowerChainTop.dataset.instanceId;
     upperChainBottom.dataset.bottomConnected = 'true';
     
@@ -157,8 +127,7 @@ export function connectChains(upperChainBottom, lowerChainTop) {
  * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
  */
 export function insertBlockBetween(upperBlock, insertBlock, lowerBlock, workspaceSVG) {
-    if (!upperBlock || !insertBlock || !lowerBlock) return;
-    
+
     // Получаем нижний блок вставляемой цепи
     const insertChain = getChainBlocks(insertBlock, workspaceSVG);
     const insertChainBottom = insertChain[insertChain.length - 1];
@@ -272,12 +241,15 @@ export function exportWorkspaceToJSON(workspaceSVG) {
         blocks[block.dataset.instanceId] = blockData;
     }
     
-    // Обрабатываем только цепи (где есть next или parent)
+    // Обрабатываем все topLevel блоки
     topLevelBlocks.forEach(topBlock => {
         const chain = getChainBlocks(topBlock, workspaceSVG);
         
-        // Сохраняем только цепи из 2+ блоков
-        if (chain.length < 2) {
+        // Сохраняем цепи из 2+ блоков или одиночные c-block с внутренними блоками
+        const shouldSave = chain.length >= 2 || 
+            (chain.length === 1 && isCBlock(chain[0]) && hasInnerBlocks(chain[0]));
+        
+        if (!shouldSave) {
             return;
         }
         
@@ -287,24 +259,5 @@ export function exportWorkspaceToJSON(workspaceSVG) {
     });
     
     return { blocks };
-}
-
-/**
- * Получить значения translate из transform атрибута
- * @param {string} transformAttr - Значение атрибута transform
- * @returns {Object} Объект с x и y координатами
- */
-function getTranslateValues(transformAttr) {
-    if (!transformAttr) {
-        return { x: 0, y: 0 };
-    }
-    const match = /translate\(([^,]+),\s*([^)]+)\)/.exec(transformAttr);
-    if (match) {
-        return {
-            x: parseFloat(match[1]) || 0,
-            y: parseFloat(match[2]) || 0
-        };
-    }
-    return { x: 0, y: 0 };
 }
 
