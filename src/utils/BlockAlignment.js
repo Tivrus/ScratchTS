@@ -2,22 +2,11 @@
 import { getChainBlocks } from '../blocks/BlockChain.js';
 import { getTranslateValues } from './DOMUtils.js';
 
-/**
- * Округлить число до ближайшего кратного заданному значению
- * @param {number} value - Значение для округления
- * @param {number} gridSize - Размер сетки (по умолчанию 10)
- * @returns {number} Округленное значение
- */
 function snapToGrid(value, gridSize = 10) {
     return Math.round(value / gridSize) * gridSize;
 }
 
 
-/**
- * Выровнять один блок по сетке
- * @param {SVGElement} block - Блок для выравнивания
- * @param {number} gridSize - Размер сетки (по умолчанию 10)
- */
 function alignBlock(block, gridSize = 10) {
     const transform = getTranslateValues(block.getAttribute('transform'));
     const alignedX = snapToGrid(transform.x, gridSize);
@@ -32,13 +21,6 @@ function alignBlock(block, gridSize = 10) {
     return false;
 }
 
-/**
- * Выровнять цепь блоков по сетке
- * @param {SVGElement} topBlock - Верхний блок цепи
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @param {number} gridSize - Размер сетки (по умолчанию 10)
- * @returns {boolean} true если цепь была выровнена, false если нет
- */
 function alignChain(topBlock, workspaceSVG, gridSize = 10) {
     const chain = getChainBlocks(topBlock, workspaceSVG);
     
@@ -71,12 +53,6 @@ function alignChain(topBlock, workspaceSVG, gridSize = 10) {
     return true;
 }
 
-/**
- * Выровнять все блоки и цепи в рабочей области по сетке
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @param {number} gridSize - Размер сетки (по умолчанию 10)
- * @returns {Object} Статистика выравнивания
- */
 export function alignAllBlocks(workspaceSVG, gridSize = 10) {
     if (!workspaceSVG) {
         console.error('[BlockAlignment] Workspace SVG not found');
@@ -126,16 +102,8 @@ export function alignAllBlocks(workspaceSVG, gridSize = 10) {
     };
 }
 
-/**
- * Инициализировать глобальные функции для выравнивания
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- */
 export function initBlockAlignment(workspaceSVG) {
     if (typeof window !== 'undefined') {
-        /**
-         * Глобальная функция для выравнивания всех блоков
-         * @param {number} gridSize - Размер сетки (по умолчанию 10)
-         */
         window.alignBlocks = (gridSize = 10) => {
             if (workspaceSVG) {
                 const result = alignAllBlocks(workspaceSVG, gridSize);

@@ -1,12 +1,6 @@
 import { isCBlock, getInnerBlocks, exportCBlockToJSON, hasInnerBlocks } from './CBlock.js';
 import { getTranslateValues } from '../utils/DOMUtils.js';
 
-/**
- * Получить все блоки в цепи, начиная с указанного блока
- * @param {SVGElement} startBlock - Начальный блок цепи
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {Array<SVGElement>} Массив блоков в цепи
- */
 export function getChainBlocks(startBlock, workspaceSVG) {
     if (!startBlock) return [];
     
@@ -88,11 +82,6 @@ export function moveChain(topBlock, deltaX, deltaY, workspaceSVG) {
     });
 }
 
-/**
- * Разорвать цепь между двумя блоками
- * @param {SVGElement} upperBlock - Верхний блок
- * @param {SVGElement} lowerBlock - Нижний блок
- */
 export function breakChain(upperBlock, lowerBlock) {
     if (!upperBlock || !lowerBlock) return;
     
@@ -105,11 +94,6 @@ export function breakChain(upperBlock, lowerBlock) {
     lowerBlock.dataset.topLevel = 'true';
 }
 
-/**
- * Соединить две цепи
- * @param {SVGElement} upperChainBottom - Нижний блок верхней цепи
- * @param {SVGElement} lowerChainTop - Верхний блок нижней цепи
- */
 export function connectChains(upperChainBottom, lowerChainTop) {    
     upperChainBottom.dataset.next = lowerChainTop.dataset.instanceId;
     upperChainBottom.dataset.bottomConnected = 'true';
@@ -119,13 +103,6 @@ export function connectChains(upperChainBottom, lowerChainTop) {
     lowerChainTop.dataset.topLevel = 'false';
 }
 
-/**
- * Вставить блок/цепь между двумя блоками
- * @param {SVGElement} upperBlock - Верхний блок
- * @param {SVGElement} insertBlock - Вставляемый блок (верхний в цепи)
- * @param {SVGElement} lowerBlock - Нижний блок
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- */
 export function insertBlockBetween(upperBlock, insertBlock, lowerBlock, workspaceSVG) {
 
     // Получаем нижний блок вставляемой цепи
@@ -147,12 +124,6 @@ export function insertBlockBetween(upperBlock, insertBlock, lowerBlock, workspac
     lowerBlock.dataset.topConnected = 'true';
 }
 
-/**
- * Экспортировать цепь в JSON формат
- * @param {SVGElement} topBlock - Верхний блок цепи
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {Object} JSON представление цепи
- */
 export function exportChainToJSON(topBlock, workspaceSVG) {
     const blocks = {};
     const chain = getChainBlocks(topBlock, workspaceSVG);
@@ -180,11 +151,6 @@ export function exportChainToJSON(topBlock, workspaceSVG) {
     return { blocks };
 }
 
-/**
- * Экспортировать все цепи рабочей области в JSON
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {Object} JSON представление всех цепей
- */
 export function exportWorkspaceToJSON(workspaceSVG) {
     const allBlocks = workspaceSVG.querySelectorAll('.workspace-block');
     const blocks = {};

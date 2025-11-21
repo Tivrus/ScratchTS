@@ -1,7 +1,3 @@
-/**
- * WorkspaceState - управление состоянием рабочей области и автосохранение
- */
-
 import { exportWorkspaceToJSON } from '../blocks/BlockChain.js';
 
 let autoSaveEnabled = true;
@@ -9,10 +5,6 @@ let lastSavedState = null;
 let workspaceSVGRef = null; // Ссылка на workspace для глобальных функций
 const API_URL = 'http://localhost:3001/api';
 
-/**
- * Сохранить состояние рабочей области
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- */
 export async function saveWorkspaceState(workspaceSVG) {
     if (!autoSaveEnabled) return;
     
@@ -58,10 +50,6 @@ export async function saveWorkspaceState(workspaceSVG) {
     }
 }
 
-/**
- * Загрузить состояние рабочей области
- * @returns {Promise<Object|null>} Загруженное состояние или null
- */
 export async function loadWorkspaceState() {
     // Сначала пытаемся загрузить из файла через API
     try {
@@ -92,9 +80,6 @@ export async function loadWorkspaceState() {
     return null;
 }
 
-/**
- * Очистить сохраненное состояние
- */
 export function clearWorkspaceState() {
     try {
         localStorage.removeItem('scratchts_workspace');
@@ -104,20 +89,11 @@ export function clearWorkspaceState() {
     }
 }
 
-/**
- * Включить/выключить автосохранение
- * @param {boolean} enabled - Включить или выключить
- */
 export function setAutoSaveEnabled(enabled) {
     autoSaveEnabled = enabled;
 }
 
 
-/**
- * Экспортировать состояние в файл
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @param {string} filename - Имя файла
- */
 export function exportToFile(workspaceSVG, filename = 'workspace.json') {
     const state = exportWorkspaceToJSON(workspaceSVG);
     const stateJSON = JSON.stringify(state, null, 2);
@@ -133,11 +109,6 @@ export function exportToFile(workspaceSVG, filename = 'workspace.json') {
     URL.revokeObjectURL(url);
 }
 
-/**
- * Импортировать состояние из файла
- * @param {File} file - Файл для импорта
- * @returns {Promise<Object>} Промис с загруженным состоянием
- */
 export function importFromFile(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -159,10 +130,6 @@ export function importFromFile(file) {
     });
 }
 
-/**
- * Инициализировать глобальные функции для работы с состоянием
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- */
 export function initWorkspaceState(workspaceSVG) {
     workspaceSVGRef = workspaceSVG;
     

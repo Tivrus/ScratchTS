@@ -1,32 +1,45 @@
 {
   "blocks": {
-    "raojmK2ie2Ayj9pHU5lI": {
-      "opcode": "motion_smth",
-      "next": null,
-      "parent": "V3H1dTBj2WGgamTERIza",
+    "w%3bhpA17G%yBYsv6IGB": {
+      "opcode": "turn_right_steps",
+      "next": "tT2FD3NPnkn4wO6srg7P",
+      "parent": null,
+      "inputs": {},
+      "fields": {},
+      "topLevel": true,
+      "x": 286,
+      "y": 365
+    },
+    "tT2FD3NPnkn4wO6srg7P": {
+      "opcode": "turn_left_steps",
+      "next": "m4AkO3iRHKJTsjLVNgwu",
+      "parent": "w%3bhpA17G%yBYsv6IGB",
       "inputs": {},
       "fields": {},
       "topLevel": false
     },
-    "V3H1dTBj2WGgamTERIza": {
-      "opcode": "control_repeat",
-      "next": "T73WobSVSj%j33ZDWG3X",
+    "m4AkO3iRHKJTsjLVNgwu": {
+      "opcode": "turn_right_steps",
+      "next": null,
+      "parent": "tT2FD3NPnkn4wO6srg7P",
+      "inputs": {},
+      "fields": {},
+      "topLevel": false
+    },
+    "SpmpT/smGs19fzTGAs0Z": {
+      "opcode": "motion_move_steps",
+      "next": "Ajjmog3vPO155+FcC/p1",
       "parent": null,
-      "inputs": {
-        "SUBSTACK": [
-          2,
-          "raojmK2ie2Ayj9pHU5lI"
-        ]
-      },
+      "inputs": {},
       "fields": {},
       "topLevel": true,
-      "x": 97,
-      "y": 156
+      "x": 311,
+      "y": 573
     },
-    "T73WobSVSj%j33ZDWG3X": {
-      "opcode": "motion_smth",
+    "Ajjmog3vPO155+FcC/p1": {
+      "opcode": "turn_left_steps",
       "next": null,
-      "parent": "V3H1dTBj2WGgamTERIza",
+      "parent": "SpmpT/smGs19fzTGAs0Z",
       "inputs": {},
       "fields": {},
       "topLevel": false

@@ -5,7 +5,7 @@ export class CategoryList {
         this.container = document.getElementById(containerId);
         
         this.activeCategory = null;
-        this.onCategoryChange = typeof onCategoryChange === 'function' ? onCategoryChange : null;
+        this.onCategoryChange = onCategoryChange || null;
         this.renderCategories();
         this.selectDefaultCategory();
     }

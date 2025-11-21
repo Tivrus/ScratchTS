@@ -90,9 +90,7 @@ export default class DragAndDropController {
     }
 
     registerDebugHelpers() {
-        if (typeof window === 'undefined') {
-            return;
-        }
+        if (typeof window === 'undefined') return;
 
         window.getCBlocksState = () => {
             const allBlocks = this.workspaceSVG.querySelectorAll('.workspace-block');

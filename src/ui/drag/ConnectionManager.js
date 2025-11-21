@@ -292,7 +292,14 @@ export default class ConnectionManager {
             // ВАЖНО: вычисляем правильный X для первого блока в цепи с учетом вложенности
             // Все блоки в цепи будут использовать этот же X (или X + смещение для вложенных)
             const finalX = calculateChainBlockX(targetBlock, targetBlock, this.workspaceSVG);
-            const finalY = targetTransform.y + targetPathHeight;
+            // Правильная формула для MIDDLE: позиция целевого блока + его высота - его bottomOffset + topOffset перетаскиваемого
+            const targetType = targetBlock.dataset.type;
+            const targetForm = BLOCK_FORMS[targetType];
+            const targetBottomOffset = targetForm?.bottomOffset || 0;
+            const draggedType = draggedBlock.dataset.type;
+            const draggedForm = BLOCK_FORMS[draggedType];
+            const draggedTopOffset = draggedForm?.topOffset || 0;
+            const finalY = targetTransform.y + targetPathHeight - targetBottomOffset + draggedTopOffset;
 
             const draggedChain = getChainBlocks(draggedBlock, this.workspaceSVG);
             const oldTransforms = new Map();
@@ -310,10 +317,24 @@ export default class ConnectionManager {
                 const insertChain = draggedChain;
                 const insertChainBottom = insertChain[insertChain.length - 1];
 
+                // Рассчитываем правильную высоту вставляемой цепи с учетом отступов между блоками
                 let totalInsertHeight = 0;
-                insertChain.forEach(block => {
-                    totalInsertHeight += getBlockPathHeight(block);
-                });
+                for (let i = 0; i < insertChain.length; i++) {
+                    const block = insertChain[i];
+                    const blockPathHeight = getBlockPathHeight(block);
+                    if (i === 0) {
+                        // Для первого блока учитываем его полную высоту
+                        totalInsertHeight += blockPathHeight;
+                    } else {
+                        // Для последующих блоков используем joinDelta
+                        const prevBlock = insertChain[i - 1];
+                        const prevForm = BLOCK_FORMS[prevBlock.dataset.type] || {};
+                        const nextForm = BLOCK_FORMS[block.dataset.type] || {};
+                        const prevPathHeight = getBlockPathHeight(prevBlock);
+                        const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0) + (nextForm.topOffset || 0);
+                        totalInsertHeight += joinDelta;
+                    }
+                }
                 this._log('MIDDLE: totalInsertHeight', totalInsertHeight, 'lowerBlock', lowerBlock?.dataset?.instanceId);
 
                 let currentY = finalY;
@@ -334,11 +355,18 @@ export default class ConnectionManager {
                 }
 
                 const lowerTransform = getTranslateValues(lowerBlock.getAttribute('transform'));
-                const lowerFinalY = finalY + totalInsertHeight;
+                // Вычисляем позицию нижнего коннектора последнего блока вставляемой цепи
+                // Если вставляется только один блок, currentY = finalY (позиция верхнего края)
+                // Если несколько блоков, currentY = позиция верхнего края последнего блока
+                const lastInsertedPathHeight = getBlockPathHeight(insertChainBottom);
+                const lastInsertedForm = BLOCK_FORMS[insertChainBottom.dataset.type] || {};
+                const lastInsertedBottomOffset = lastInsertedForm.bottomOffset || 0;
+                // Позиция нижнего коннектора = позиция верхнего края + высота блока - bottomOffset
+                const lowerFinalY = (insertChain.length === 1 ? finalY : currentY) + lastInsertedPathHeight - lastInsertedBottomOffset;
 
                 const lowerChain = getChainBlocks(lowerBlock, this.workspaceSVG);
                 const deltaY = lowerFinalY - lowerTransform.y;
-
+                console.log('deltaY', deltaY);
                 // ВАЖНО: все блоки в lowerChain должны иметь одинаковый X (вычисленный от первого блока)
                 lowerChain.forEach(block => {
                     const blockTransform = getTranslateValues(block.getAttribute('transform'));

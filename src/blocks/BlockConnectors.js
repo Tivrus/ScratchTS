@@ -1,6 +1,3 @@
-/**
- * BlockConnectors - система коннекторов для соединения блоков
- */
 
 import { BLOCK_FORMS, SVG_NS } from '../utils/Constants.js';
 

@@ -35,11 +35,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Регистрируем функции для вызова из Qt
     if (typeof window !== 'undefined' && workspaceSVG) {
-        /**
-         * Загрузить workspace из JSON объекта
-         * @param {Object} workspaceData - JSON объект с данными workspace
-         * @returns {Promise<boolean>} Успешность загрузки
-         */
         window.loadWorkspaceFromJSON = async (workspaceData) => {
             try {
                 const loaded = await loadWorkspaceFromJSON(workspaceData, workspaceSVG);
@@ -55,10 +50,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         };
 
-        /**
-         * Очистить workspace (удалить все блоки)
-         * @returns {Promise<void>}
-         */
         window.clearWorkspace = async () => {
             const allBlocks = workspaceSVG.querySelectorAll('.workspace-block');
             allBlocks.forEach(block => block.remove());
@@ -66,18 +57,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.log('[App] Workspace cleared');
         };
 
-        /**
-         * Получить текущий workspace в виде JSON
-         * @returns {Object} JSON объект с данными workspace
-         */
         window.getWorkspaceJSON = () => {
             return exportWorkspaceToJSON(workspaceSVG);
         };
 
-        /**
-         * Сохранить текущий workspace
-         * @returns {Promise<void>}
-         */
         window.saveWorkspace = async () => {
             await saveWorkspaceState(workspaceSVG);
         };

@@ -6,31 +6,15 @@ import { BLOCK_FORMS, DEFAULT_BLOCK_HEIGHT } from './Constants.js';
 import { blocks } from '../data/BlocksData.js';
 import { categories } from '../data/CategoriesData.js';
 
-/**
- * Найти конфигурацию блока по opcode
- * @param {string} opcode - Opcode блока
- * @returns {Object|null} Конфигурация блока
- */
 function findBlockConfig(opcode) {
     return blocks.find(block => block.id === opcode) || null;
 }
 
-/**
- * Найти цвет категории
- * @param {string} categoryId - ID категории
- * @returns {string} Цвет категории
- */
 function getCategoryColor(categoryId) {
     const category = categories.find(cat => cat.id === categoryId);
     return category?.color || '#4c97ff';
 }
 
-/**
- * Создать блок из JSON данных
- * @param {Object} blockData - Данные блока из JSON
- * @param {SVGElement} workspaceSVG - SVG контейнер
- * @returns {SVGElement|null} Созданный блок
- */
 function createBlockFromData(blockData, workspaceSVG) {
     const blockConfig = findBlockConfig(blockData.opcode);
     if (!blockConfig) {
@@ -50,19 +34,13 @@ function createBlockFromData(blockData, workspaceSVG) {
     }
 
     // Восстанавливаем topLevel
-    if (blockData.topLevel !== undefined) {
+    if (blockData.topLevel) {
         blockElement.dataset.topLevel = String(blockData.topLevel);
     }
 
     return blockElement;
 }
 
-/**
- * Восстановить связи между блоками
- * @param {Object} blocksData - Данные всех блоков
- * @param {Map<string, SVGElement>} blockMap - Карта instanceId -> SVG элемент
- * @param {SVGElement} workspaceSVG - SVG контейнер
- */
 function restoreConnections(blocksData, blockMap, workspaceSVG) {
     Object.entries(blocksData).forEach(([instanceId, blockData]) => {
         const block = blockMap.get(instanceId);
@@ -129,12 +107,6 @@ function restoreConnections(blocksData, blockMap, workspaceSVG) {
     });
 }
 
-/**
- * Загрузить workspace из JSON
- * @param {Object} workspaceData - Данные workspace
- * @param {SVGElement} workspaceSVG - SVG контейнер
- * @returns {Promise<boolean>} Успешность загрузки
- */
 export async function loadWorkspaceFromJSON(workspaceData, workspaceSVG) {
     try {
         // Очищаем текущий workspace

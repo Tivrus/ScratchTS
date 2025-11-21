@@ -1,7 +1,3 @@
-/**
- * GhostBlock - визуализация места подключения блока
- */
-
 import { BLOCK_FORMS, DEFAULT_BLOCK_HEIGHT } from '../utils/Constants.js';
 import { ConnectorType, getConnectorPosition } from '../blocks/BlockConnectors.js';
 import PathUtils from '../utils/PathUtils.js';
@@ -58,7 +54,7 @@ export class GhostBlock {
         
         // Используем локальную переменную для позиции коннектора, чтобы можно было обновить её после ghost resize
         let actualConnectorPos = targetConnectorPos;
-        const prevGhostElement = this.currentGhostCBlock?.element || null;
+        const prevGhostElement = this.currentGhostCBlock?.element;
         
         // Растягиваем c-block если нужно
         if (cBlockToResize) {
@@ -73,22 +69,16 @@ export class GhostBlock {
             // после применения ghost resize, так как размер c-block изменился
             if (connectorType === ConnectorType.BOTTOM && targetBlock === cBlockToResize) {
                 const updatedConnectorPos = getConnectorPosition(cBlockToResize, ConnectorType.BOTTOM);
-                if (updatedConnectorPos) {
-                    actualConnectorPos = updatedConnectorPos;
-                    this._log('show(): updated bottom connector position after ghost resize', actualConnectorPos);
-                }
+                if (updatedConnectorPos) actualConnectorPos = updatedConnectorPos;
             }
         } else {
             this._log('show(): no cBlockToResize -> releaseCBlockGhostResize()');
             this.releaseCBlockGhostResize();
             // ВАЖНО: если только что убрали ghost-растяжение c-block и нацеливаемся на его нижний внешний коннектор,
             // нужно пересчитать позицию коннектора уже по "сжатому" состоянию
-            if (connectorType === ConnectorType.BOTTOM && targetBlock && targetBlock === prevGhostElement && targetBlock.dataset.type === 'c-block') {
+            if (connectorType === ConnectorType.BOTTOM && targetBlock === prevGhostElement && targetBlock.dataset.type === 'c-block') {
                 const updatedAfterRelease = getConnectorPosition(targetBlock, ConnectorType.BOTTOM);
-                if (updatedAfterRelease) {
-                    actualConnectorPos = updatedAfterRelease;
-                    this._log('show(): recomputed bottom connector after release', actualConnectorPos);
-                }
+                if (updatedAfterRelease) actualConnectorPos = updatedAfterRelease;
             }
         }
 
@@ -107,6 +97,32 @@ export class GhostBlock {
             path.setAttribute('stroke', '#606060');
         });
 
+        // Уменьшаем высоту viewBox на 10
+        const svgElements = blockClone.querySelectorAll('svg');
+        if (svgElements.length > 0) {
+            svgElements.forEach(svg => {
+                const viewBox = svg.getAttribute('viewBox');
+                if (viewBox) {
+                    const viewBoxParts = viewBox.split(/\s+/).map(Number);
+                    if (viewBoxParts.length === 4) {
+                        // viewBox: 'x y width height' -> уменьшаем height (4-й элемент)
+                        viewBoxParts[3] = Math.max(1, viewBoxParts[3] - 10);
+                        svg.setAttribute('viewBox', viewBoxParts.join(' '));
+                    }
+                }
+            });
+        } else if (blockClone.tagName === 'svg') {
+            // Если сам клон - это SVG элемент
+            const viewBox = blockClone.getAttribute('viewBox');
+            if (viewBox) {
+                const viewBoxParts = viewBox.split(/\s+/).map(Number);
+                if (viewBoxParts.length === 4) {
+                    viewBoxParts[3] = Math.max(1, viewBoxParts[3] - 10);
+                    blockClone.setAttribute('viewBox', viewBoxParts.join(' '));
+                }
+            }
+        }
+
         // Получаем X координату целевого блока из его transform
         const targetTransform = this.getTranslateValues(targetBlock.getAttribute('transform'));
         
@@ -123,15 +139,14 @@ export class GhostBlock {
             const targetForm = BLOCK_FORMS[targetType];
             // ВАЖНО: сначала используем актуальную высоту из dataset.height (c-block может быть растянут),
             // затем падаем обратно на высоту формы
-            const targetPathHeight = (parseFloat(targetBlock.dataset.height) || 0)-10 || targetForm?.pathHeight-10 || DEFAULT_BLOCK_HEIGHT;
-
+            const targetPathHeight = parseFloat(targetBlock.dataset.height) || targetForm?.pathHeight || DEFAULT_BLOCK_HEIGHT;
+            const targetBottomOffset = targetForm?.bottomOffset || 0;
             const draggedType = draggedBlock.dataset.type;
             const draggedForm = BLOCK_FORMS[draggedType];
             const draggedTopOffset = draggedForm?.topOffset || 0;
-
             finalX = targetTransform.x;
-            finalY = targetTransform.y + targetPathHeight - draggedTopOffset;
-            this._log('show(): MIDDLE final pos', { finalX, finalY, targetPathHeight, draggedTopOffset });
+            // Правильная формула для MIDDLE: позиция целевого блока + его высота - его bottomOffset + topOffset перетаскиваемого
+            finalY = targetTransform.y + targetPathHeight - targetBottomOffset + draggedTopOffset;
         } else {
             finalX += 1;
             finalY += 1;
@@ -168,11 +183,6 @@ export class GhostBlock {
         return this.ghostElement !== null;
     }
 
-    /**
-     * Найти содержащий c-block для блока (может быть прямым родителем или выше по иерархии)
-     * @param {SVGElement} block - Блок для поиска
-     * @returns {SVGElement|null} C-block, содержащий данный блок, или null
-     */
     findContainingCBlock(block) {
         if (!block) return null;
 
@@ -273,11 +283,10 @@ export class GhostBlock {
         const ghostHeight = String(baseHeight + insertHeight);
         cBlock.dataset.height = ghostHeight;
 
-        let ghostInnerHeight;
-        if (originalState.originalInnerHeight !== undefined) {
+        if (originalState.originalInnerHeight) {
             const baseInnerHeight = parseFloat(originalState.originalInnerHeight);
             if (!Number.isNaN(baseInnerHeight)) {
-                ghostInnerHeight = String(baseInnerHeight + insertHeight);
+                const ghostInnerHeight = String(baseInnerHeight + insertHeight);
                 cBlock.dataset.innerHeight = ghostInnerHeight;
             }
         }
@@ -316,20 +325,20 @@ export class GhostBlock {
         const pathElement = element.querySelector('path');
         const currentPath = pathElement?.getAttribute('d');
         this._log('releaseCBlockGhostResize(): restoring for', element?.dataset?.instanceId);
-        if (pathElement && typeof originalPath === 'string' && typeof ghostPath === 'string' && currentPath === ghostPath) {
+        if (pathElement && originalPath && ghostPath && currentPath === ghostPath) {
             pathElement.setAttribute('d', originalPath);
         }
 
-        if (ghostHeight !== undefined && ghostHeight === element.dataset.height) {
-            if (originalHeight !== undefined) {
+        if (ghostHeight === element.dataset.height) {
+            if (originalHeight) {
                 element.dataset.height = originalHeight;
             } else {
                 delete element.dataset.height;
             }
         }
 
-        if (ghostInnerHeight !== undefined && ghostInnerHeight === element.dataset.innerHeight) {
-            if (originalInnerHeight !== undefined && originalInnerHeight !== null && originalInnerHeight !== '') {
+        if (ghostInnerHeight === element.dataset.innerHeight) {
+            if (originalInnerHeight) {
                 element.dataset.innerHeight = originalInnerHeight;
             } else {
                 delete element.dataset.innerHeight;
@@ -337,13 +346,11 @@ export class GhostBlock {
         }
 
         // Возвращаем блоки после c-block на исходные позиции
-        if (blocksAfterPositions && blocksAfterPositions.size > 0) {
+        if (blocksAfterPositions?.size) {
             this._log('releaseCBlockGhostResize(): restoring positions for blocksAfter', Array.from(blocksAfterPositions.keys()));
             blocksAfterPositions.forEach((position, blockId) => {
                 const block = this.containerSVG.querySelector(`[data-instance-id="${blockId}"]`);
                 if (block) {
-                    const current = this.getTranslateValues(block.getAttribute('transform'));
-                    
                     block.setAttribute('transform', `translate(${position.x}, ${position.y})`);
                 }
             });

@@ -1,16 +1,7 @@
-/**
- * SpecialBlocks - логика для специальных типов блоков (start-block, stop-block)
- */
-
 import { getChainBlocks } from './BlockChain.js';
 import { BLOCK_FORMS, DEFAULT_BLOCK_HEIGHT } from '../utils/Constants.js';
 import { getTranslateValues } from '../utils/DOMUtils.js';
 
-/**
- * Проверить, является ли блок специальным (start-block или stop-block)
- * @param {SVGElement} block - Блок для проверки
- * @returns {string|null} Тип специального блока или null
- */
 export function getSpecialBlockType(block) {
     if (!block || !block.dataset) return null;
     
@@ -22,47 +13,24 @@ export function getSpecialBlockType(block) {
     return null;
 }
 
-/**
- * Проверить, имеет ли блок верхний коннектор
- * @param {SVGElement} block - Блок для проверки
- * @returns {boolean}
- */
 export function hasTopConnector(block) {
     const blockType = block.dataset.type;
     // start-block не имеет верхнего коннектора
     return blockType !== 'start-block';
 }
 
-/**
- * Проверить, имеет ли блок нижний коннектор
- * @param {SVGElement} block - Блок для проверки
- * @returns {boolean}
- */
 export function hasBottomConnector(block) {
     const blockType = block.dataset.type;
     // stop-block не имеет нижнего коннектора
     return blockType !== 'stop-block';
 }
 
-/**
- * Получить реальную высоту path блока
- * @param {SVGElement} block - Блок
- * @returns {number} Высота path блока
- */
 function getBlockPathHeight(block) {
     const blockType = block.dataset.type;
     const blockForm = BLOCK_FORMS[blockType];
     return blockForm?.pathHeight || parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT;
 }
 
-/**
- * Обработать вставку start-block в середину цепи
- * Отсекает все блоки выше (включая targetBlock) и смещает их
- * @param {SVGElement} startBlock - Вставляемый start-block
- * @param {SVGElement} targetBlock - Блок, после которого вставляется
- * @param {SVGElement} lowerBlock - Блок, который был ниже targetBlock
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- */
 export function handleStartBlockInsertion(startBlock, targetBlock, lowerBlock, workspaceSVG) {
 
     // Получаем верхнюю часть цепи (от topLevel до targetBlock включительно)
@@ -108,14 +76,6 @@ export function handleStartBlockInsertion(startBlock, targetBlock, lowerBlock, w
   
 }
 
-/**
- * Обработать вставку stop-block в середину цепи
- * Отсекает все блоки ниже (включая lowerBlock) и смещает их
- * @param {SVGElement} stopBlock - Вставляемый stop-block
- * @param {SVGElement} targetBlock - Блок, после которого вставляется
- * @param {SVGElement} lowerBlock - Блок, который был ниже targetBlock
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- */
 export function handleStopBlockInsertion(stopBlock, targetBlock, lowerBlock, workspaceSVG) {
 
     if (!lowerBlock) {
@@ -161,12 +121,6 @@ export function handleStopBlockInsertion(stopBlock, targetBlock, lowerBlock, wor
     
 }
 
-/**
- * Получить верхний блок цепи (блок с topLevel="true")
- * @param {SVGElement} block - Любой блок в цепи
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {SVGElement|null} Верхний блок цепи
- */
 function getTopLevelBlockInChain(block, workspaceSVG) {
     if (!block) return null;
     
@@ -187,24 +141,11 @@ function getTopLevelBlockInChain(block, workspaceSVG) {
     return currentBlock;
 }
 
-/**
- * Получить последний блок в цепи
- * @param {SVGElement} topBlock - Верхний блок цепи
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {SVGElement} Последний блок в цепи
- */
 function getLastBlockInChain(topBlock, workspaceSVG) {
     const chain = getChainBlocks(topBlock, workspaceSVG);
     return chain[chain.length - 1];
 }
 
-/**
- * Проверить, можно ли подключить цепь сверху
- * @param {SVGElement} draggedBlock - Перетаскиваемый блок (верхний в цепи)
- * @param {SVGElement} targetBlock - Целевой блок
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {boolean} true если подключение разрешено
- */
 export function canConnectFromTop(draggedBlock, targetBlock, workspaceSVG) {
     // Получаем последний блок в перетаскиваемой цепи
     const lastBlock = getLastBlockInChain(draggedBlock, workspaceSVG);
@@ -217,13 +158,6 @@ export function canConnectFromTop(draggedBlock, targetBlock, workspaceSVG) {
     return true;
 }
 
-/**
- * Проверить, можно ли подключить цепь снизу
- * @param {SVGElement} draggedBlock - Перетаскиваемый блок (верхний в цепи)
- * @param {SVGElement} targetBlock - Целевой блок
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {boolean} true если подключение разрешено
- */
 export function canConnectFromBottom(draggedBlock, targetBlock, workspaceSVG) {
     // Если первый блок - start-block, нельзя подключать снизу
     if (draggedBlock.dataset.type === 'start-block') {
@@ -234,14 +168,6 @@ export function canConnectFromBottom(draggedBlock, targetBlock, workspaceSVG) {
     return true;
 }
 
-/**
- * Обработать вставку цепи в середину с учетом специальных блоков
- * @param {SVGElement} draggedBlock - Вставляемый блок (верхний в цепи)
- * @param {SVGElement} targetBlock - Блок, после которого вставляется
- * @param {SVGElement} lowerBlock - Блок, который был ниже targetBlock
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {boolean} true если была применена специальная обработка
- */
 export function handleMiddleInsertionWithSpecialBlocks(draggedBlock, targetBlock, lowerBlock, workspaceSVG) {
     if (!lowerBlock) return false;
     
@@ -368,14 +294,6 @@ export function handleMiddleInsertionWithSpecialBlocks(draggedBlock, targetBlock
     return false; // Специальная обработка не нужна
 }
 
-/**
- * Проверить, нужна ли специальная обработка для вставки блока
- * @param {SVGElement} insertedBlock - Вставляемый блок
- * @param {SVGElement} targetBlock - Блок, после которого вставляется
- * @param {SVGElement} lowerBlock - Блок, который был ниже targetBlock
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {boolean} true если была применена специальная обработка
- */
 export function handleSpecialBlockInsertion(insertedBlock, targetBlock, lowerBlock, workspaceSVG) {
     const specialType = getSpecialBlockType(insertedBlock);
     

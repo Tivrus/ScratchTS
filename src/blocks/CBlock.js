@@ -1,29 +1,13 @@
-/**
- * CBlock - управление логикой c-block (циклы и условия)
- * c-block может содержать блоки внутри себя и динамически растягиваться
- */
-
 import { getChainBlocks, getAllChainBlocks } from './BlockChain.js';
 import { BLOCK_FORMS, DEFAULT_BLOCK_HEIGHT, CBLOCK_NESTED_X_OFFSET, SVG_NS } from '../utils/Constants.js';
 import PathUtils from '../utils/PathUtils.js';
 import { getTranslateValues } from '../utils/DOMUtils.js';
 export const C_BLOCK_EMPTY_INNER_SPACE = 24; // Базовое «пустое» пространство внутри c-block
 
-/**
- * Проверить, является ли блок c-block
- * @param {SVGElement} block - Блок для проверки
- * @returns {boolean}
- */
 export function isCBlock(block) {
     return block && block.dataset.type === 'c-block';
 }
 
-/**
- * Получить блоки внутри c-block (SUBSTACK)
- * @param {SVGElement} cBlock - C-block
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {Array<SVGElement>} Массив блоков внутри c-block
- */
 export function getInnerBlocks(cBlock, workspaceSVG) {
     if (!isCBlock(cBlock)) return [];
     
@@ -36,22 +20,10 @@ export function getInnerBlocks(cBlock, workspaceSVG) {
     return getChainBlocks(firstInnerBlock, workspaceSVG);
 }
 
-/**
- * Проверить, есть ли блоки внутри c-block
- * @param {SVGElement} cBlock - C-block
- * @returns {boolean}
- */
 export function hasInnerBlocks(cBlock) {
     return isCBlock(cBlock) && !!cBlock.dataset.substack;
 }
 
-/**
- * Проверить, находится ли блок внутри c-block (в SUBSTACK)
- * @param {SVGElement} cBlock - C-block
- * @param {SVGElement} block - Проверяемый блок
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {boolean} true если блок находится внутри c-block
- */
 export function isBlockInsideCBlock(cBlock, block, workspaceSVG) {
     if (!isCBlock(cBlock) || !block) return false;
     
@@ -59,12 +31,6 @@ export function isBlockInsideCBlock(cBlock, block, workspaceSVG) {
     return innerBlocks.includes(block);
 }
 
-/**
- * Получить уровень вложенности блока (количество родительских c-block)
- * @param {SVGElement} block - Блок для проверки
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {number} Уровень вложенности (0 для top-level блоков)
- */
 export function getNestedLevel(block, workspaceSVG) {
     if (!block || !workspaceSVG) return 0;
     
@@ -85,18 +51,6 @@ export function getNestedLevel(block, workspaceSVG) {
     return level;
 }
 
-/**
- * Вычислить правильную X координату для блока в цепи
- * Правила:
- * 1. Все блоки в одной цепи (на одном уровне) имеют одинаковый X
- * 2. Для внутренних блоков c-block: X = родительский X + уровень_вложенности * 16
- * 3. Для внешних блоков (top-level): X берется от первого блока в цепи
- * 
- * @param {SVGElement} chainFirstBlock - Первый блок в цепи (для определения базового X)
- * @param {SVGElement} targetBlock - Блок, для которого вычисляем X
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {number} Правильная X координата
- */
 export function calculateChainBlockX(chainFirstBlock, targetBlock, workspaceSVG) {
     if (!chainFirstBlock || !targetBlock || !workspaceSVG) return 0;
     
@@ -110,23 +64,10 @@ export function calculateChainBlockX(chainFirstBlock, targetBlock, workspaceSVG)
     return chainFirstTransform.x;
 }
 
-/**
- * Вычислить X координату для блока с учетом уровня вложенности (старая функция, оставлена для совместимости)
- * @param {SVGElement} baseBlock - Базовый блок (обычно первый в цепи или c-block)
- * @param {SVGElement} targetBlock - Целевой блок (для которого вычисляем X)
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {number} X координата
- */
 export function calculateBlockX(baseBlock, targetBlock, workspaceSVG) {
     return calculateChainBlockX(baseBlock, targetBlock, workspaceSVG);
 }
 
-/**
- * Получить высоту внутренней части c-block (суммарная высота вложенных блоков)
- * @param {SVGElement} cBlock - C-block
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {number} Высота в пикселях
- */
 export function getInnerHeight(cBlock, workspaceSVG) {
     const innerBlocks = getInnerBlocks(cBlock, workspaceSVG);
     if (innerBlocks.length === 0) return 0;
@@ -181,23 +122,11 @@ export function getInnerHeight(cBlock, workspaceSVG) {
     return totalHeight - lastBottomOffset - correction;
 }
 
-/**
- * Получить количество блоков внутри c-block
- * @param {SVGElement} cBlock - C-block
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {number} Количество блоков
- */
 export function getInnerBlocksCount(cBlock, workspaceSVG) {
     const innerBlocks = getInnerBlocks(cBlock, workspaceSVG);
     return innerBlocks.length;
 }
 
-/**
- * Получить актуальную высоту c-block
- * @param {SVGElement} cBlock - C-block
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {number} Высота в пикселях
- */
 export function getCBlockHeight(cBlock, workspaceSVG) {
     if (!isCBlock(cBlock)) return 0;
     
@@ -213,12 +142,6 @@ export function getCBlockHeight(cBlock, workspaceSVG) {
     return baseHeight + effectiveInnerHeight;
 }
 
-/**
- * Получить состояние c-block (для отладки и управления)
- * @param {SVGElement} cBlock - C-block
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {Object} Объект с информацией о состоянии c-block
- */
 export function getCBlockState(cBlock, workspaceSVG) {
     if (!isCBlock(cBlock)) return null;
     
@@ -243,11 +166,6 @@ export function getCBlockState(cBlock, workspaceSVG) {
     };
 }
 
-/**
- * Синхронизировать высоту c-block с внутренними блоками
- * @param {SVGElement} cBlock - C-block
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- */
 export function syncCBlockHeight(cBlock, workspaceSVG) {
     if (!isCBlock(cBlock)) return;
     
@@ -273,12 +191,6 @@ export function syncCBlockHeight(cBlock, workspaceSVG) {
     }
 }
 
-/**
- * Синхронизировать размеры всех родительских c-block для указанного блока
- * Проходим вверх по parent-цепочке и для каждого встретившегося c-block вызываем syncCBlockHeight
- * @param {SVGElement} block - Блок, от которого начинаем подниматься вверх (обычно это сам c-block)
- * @param {SVGElement} workspaceSVG
- */
 export function syncCBlockAncestors(block, workspaceSVG) {
     let current = block;
     const visited = new Set();
@@ -298,10 +210,6 @@ export function syncCBlockAncestors(block, workspaceSVG) {
     }
 }
 
-/**
- * Синхронизировать высоты всех c-block в рабочей области
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- */
 export function syncAllCBlockHeights(workspaceSVG) {
     if (!workspaceSVG) return;
     
@@ -315,12 +223,6 @@ export function syncAllCBlockHeights(workspaceSVG) {
     });
 }
 
-/**
- * Растянуть c-block по вертикали
- * @param {SVGElement} cBlock - C-block для растяжения
- * @param {number} additionalHeight - Дополнительная высота (может быть отрицательной для сжатия)
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области (опционально, для смещения блоков после c-block)
- */
 export function resizeCBlock(cBlock, additionalHeight, workspaceSVG = null) {
     if (!isCBlock(cBlock)) return;
     if (Math.abs(additionalHeight) < 0.01) return; // Игнорируем микроскопические изменения
@@ -374,15 +276,6 @@ export function resizeCBlock(cBlock, additionalHeight, workspaceSVG = null) {
     }
 }
 
-/**
- * Вставить блок внутрь c-block
- * @param {SVGElement} cBlock - C-block
- * @param {SVGElement} insertBlock - Вставляемый блок (верхний в цепи)
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @param {number} x - X координата для вставки
- * @param {number} y - Y координата для вставки
- * @param {boolean} atBottom - Вставить в конец (true) или в начало (false)
- */
 export function insertBlockInside(cBlock, insertBlock, workspaceSVG, x, y, atBottom = false) {
     if (!isCBlock(cBlock)) return;
     
@@ -534,12 +427,6 @@ export function insertBlockInside(cBlock, insertBlock, workspaceSVG, x, y, atBot
     syncCBlockAncestors(cBlock, workspaceSVG);
 }
 
-/**
- * Удалить блок из c-block
- * @param {SVGElement} cBlock - C-block
- * @param {SVGElement} removeBlock - Удаляемый блок
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- */
 export function removeBlockFromInside(cBlock, removeBlock, workspaceSVG) {
     if (!isCBlock(cBlock)) return;
     
@@ -614,11 +501,6 @@ function getEffectiveInnerHeight(cBlock, workspaceSVG) {
     return Math.max(0, innerHeight - C_BLOCK_EMPTY_INNER_SPACE);
 }
 
-/**
- * Получить количество коннекторов c-block
- * @param {SVGElement} cBlock - C-block
- * @returns {number} 2 (с блоками внутри) или 3 (пустой)
- */
 export function getCBlockConnectorCount(cBlock) {
     if (!isCBlock(cBlock)) return 0;
     // Пустой c-block: TOP, INNER_TOP, BOTTOM = 3
@@ -626,12 +508,6 @@ export function getCBlockConnectorCount(cBlock) {
     return hasInnerBlocks(cBlock) ? 2 : 3;
 }
 
-/**
- * Экспортировать c-block в JSON с SUBSTACK
- * @param {SVGElement} cBlock - C-block
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {Object} JSON представление c-block
- */
 export function exportCBlockToJSON(cBlock, workspaceSVG) {
     const blockData = {
         opcode: cBlock.dataset.id,
@@ -658,12 +534,6 @@ export function exportCBlockToJSON(cBlock, workspaceSVG) {
     return blockData;
 }
 
-/**
- * Рассчитать позицию для вставки блока внутрь c-block
- * @param {SVGElement} cBlock - C-block
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- * @returns {Object} {x, y} координаты для вставки
- */
 export function getInsertPosition(cBlock, workspaceSVG) {
     const cBlockTransform = getTranslateValues(cBlock.getAttribute('transform'));
     
@@ -681,12 +551,6 @@ export function getInsertPosition(cBlock, workspaceSVG) {
     };
 }
 
-/**
- * Обновить позиции блоков после c-block при изменении его размера
- * @param {SVGElement} cBlock - C-block
- * @param {number} heightDelta - Изменение высоты
- * @param {SVGElement} workspaceSVG - SVG контейнер рабочей области
- */
 export function updateBlocksAfterCBlock(cBlock, heightDelta, workspaceSVG) {
     if (!cBlock.dataset.next) return;
     if (Math.abs(heightDelta) < 0.01) return; // Игнорируем микроскопические изменения

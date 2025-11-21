@@ -100,7 +100,7 @@ export default class DragSession {
         this.activeDrag.lastEvent = event;
 
         // Используем requestAnimationFrame для плавной анимации
-        if (this.animationFrameId !== null) {
+        if (this.animationFrameId) {
             cancelAnimFrame(this.animationFrameId);
         }
 
@@ -290,7 +290,7 @@ export default class DragSession {
         window.removeEventListener('pointermove', this.handlePointerMove);
         window.removeEventListener('pointerup', this.handlePointerUp);
         
-        if (this.animationFrameId !== null) {
+        if (this.animationFrameId) {
             cancelAnimFrame(this.animationFrameId);
             this.animationFrameId = null;
         }
