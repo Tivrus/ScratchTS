@@ -1,45 +1,27 @@
 {
   "blocks": {
-    "w%3bhpA17G%yBYsv6IGB": {
+    "1Tcf6OxgMQed2SLedBRV": {
       "opcode": "turn_right_steps",
-      "next": "tT2FD3NPnkn4wO6srg7P",
+      "next": "76XCAITvacxtgtW0/Cpe",
       "parent": null,
       "inputs": {},
       "fields": {},
       "topLevel": true,
-      "x": 286,
-      "y": 365
+      "x": 198,
+      "y": 209
     },
-    "tT2FD3NPnkn4wO6srg7P": {
+    "76XCAITvacxtgtW0/Cpe": {
       "opcode": "turn_left_steps",
-      "next": "m4AkO3iRHKJTsjLVNgwu",
-      "parent": "w%3bhpA17G%yBYsv6IGB",
+      "next": "3Xm8m7uD1fP93+0ActVD",
+      "parent": "1Tcf6OxgMQed2SLedBRV",
       "inputs": {},
       "fields": {},
       "topLevel": false
     },
-    "m4AkO3iRHKJTsjLVNgwu": {
-      "opcode": "turn_right_steps",
+    "3Xm8m7uD1fP93+0ActVD": {
+      "opcode": "motion_smth",
       "next": null,
-      "parent": "tT2FD3NPnkn4wO6srg7P",
-      "inputs": {},
-      "fields": {},
-      "topLevel": false
-    },
-    "SpmpT/smGs19fzTGAs0Z": {
-      "opcode": "motion_move_steps",
-      "next": "Ajjmog3vPO155+FcC/p1",
-      "parent": null,
-      "inputs": {},
-      "fields": {},
-      "topLevel": true,
-      "x": 311,
-      "y": 573
-    },
-    "Ajjmog3vPO155+FcC/p1": {
-      "opcode": "turn_left_steps",
-      "next": null,
-      "parent": "SpmpT/smGs19fzTGAs0Z",
+      "parent": "76XCAITvacxtgtW0/Cpe",
       "inputs": {},
       "fields": {},
       "topLevel": false

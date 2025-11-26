@@ -1,5 +1,5 @@
 import { getConnectorPosition, ConnectorType } from '../../blocks/BlockConnectors.js';
-import { getChainBlocks } from '../../blocks/BlockChain.js';
+import { getChainBlocks, getChainHeight, getTopLevelBlock } from '../../blocks/BlockChain.js';
 import { handleSpecialBlockInsertion, canConnectFromTop, canConnectFromBottom, handleMiddleInsertionWithSpecialBlocks } from '../../blocks/SpecialBlocks.js';
 import { isCBlock, insertBlockInside, getInsertPosition, syncCBlockHeight, getNestedLevel, calculateChainBlockX } from '../../blocks/CBlock.js';
 import { getBlockPathHeight, getTranslateValues } from './DragHelpers.js';
@@ -190,6 +190,10 @@ export default class ConnectionManager {
                 this._log('TOP: syncCBlockHeight for containingCBlock', containingCBlock?.dataset?.instanceId);
                 syncCBlockHeight(containingCBlock, this.workspaceSVG);
             }
+            
+            // Выводим высоту новой цепи
+            const topLevelBlock = getTopLevelBlock(draggedBlock, this.workspaceSVG) || draggedBlock;
+            getChainHeight(topLevelBlock, this.workspaceSVG);
             return;
         }
 
@@ -273,6 +277,10 @@ export default class ConnectionManager {
                 this._log('BOTTOM: syncCBlockHeight for containingCBlock', containingCBlock?.dataset?.instanceId);
                 syncCBlockHeight(containingCBlock, this.workspaceSVG);
             }
+            
+            // Выводим высоту новой цепи
+            const topLevelBlock = getTopLevelBlock(targetBlock, this.workspaceSVG) || targetBlock;
+            getChainHeight(topLevelBlock, this.workspaceSVG);
             return;
         }
 
@@ -427,6 +435,10 @@ export default class ConnectionManager {
                 this._log('MIDDLE: syncCBlockHeight for containingCBlock', containingCBlock?.dataset?.instanceId);
                 syncCBlockHeight(containingCBlock, this.workspaceSVG);
             }
+            
+            // Выводим высоту новой цепи
+            const topLevelBlock = getTopLevelBlock(targetBlock, this.workspaceSVG) || targetBlock;
+            getChainHeight(topLevelBlock, this.workspaceSVG);
         }
     }
 }

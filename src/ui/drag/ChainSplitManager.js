@@ -53,14 +53,20 @@ export default class ChainSplitManager {
 
         lowerChain.forEach(block => {
             const transform = getTranslateValues(block.getAttribute('transform'));
-            originalPositions.set(block.dataset.instanceId, { x: transform.x, y: transform.y });
+            originalPositions.set(block.dataset.instanceId, { x: transform.x, y: transform.y});
         });
-
+        if (draggedBlock.dataset.type === 'stop-block') {
+            lowerChain.forEach(block => {
+                const transform = getTranslateValues(block.getAttribute('transform'));
+                block.setAttribute('transform', `translate(${transform.x}, ${transform.y + firstBlockPathHeight+1})`);
+            });
+        }
+        else {
         lowerChain.forEach(block => {
             const transform = getTranslateValues(block.getAttribute('transform'));
-            block.setAttribute('transform', `translate(${transform.x}, ${transform.y + firstBlockPathHeight})`);
+            block.setAttribute('transform', `translate(${transform.x}, ${transform.y + firstBlockPathHeight-9})`);
         });
-
+        }
         return {
             type: 'chain',
             targetBlock,

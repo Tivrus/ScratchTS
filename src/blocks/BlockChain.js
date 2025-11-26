@@ -1,5 +1,6 @@
 import { isCBlock, getInnerBlocks, exportCBlockToJSON, hasInnerBlocks } from './CBlock.js';
 import { getTranslateValues } from '../utils/DOMUtils.js';
+import { BLOCK_FORMS, DEFAULT_BLOCK_HEIGHT } from '../utils/Constants.js';
 
 export function getChainBlocks(startBlock, workspaceSVG) {
     if (!startBlock) return [];
@@ -71,6 +72,72 @@ export function isTopLevelBlock(block) {
     return block && block.dataset.topLevel === 'true';
 }
 
+/**
+ * Получает pathHeight блока с учетом его типа
+ */
+function getBlockPathHeight(block) {
+ 
+    const blockType = block.dataset.type;
+    const blockForm = BLOCK_FORMS[blockType] || {};
+    
+    // Для c-block приоритет у dataset.height (может быть растянут)
+    if (blockType === 'c-block') {
+        return parseFloat(block.dataset.height) || blockForm?.pathHeight || DEFAULT_BLOCK_HEIGHT;
+    }
+    
+    // Для остальных блоков приоритет у pathHeight из формы
+    return blockForm?.pathHeight || parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT;
+}
+
+/**
+ * Правильно рассчитывает высоту цепи блоков
+ * Учитывает коннекторные стыки между блоками (topOffset, bottomOffset)
+ * 
+ * @param {HTMLElement} startBlock - Первый блок в цепи
+ * @param {HTMLElement} workspaceSVG - SVG контейнер рабочей области
+ * @returns {number} Общая высота цепи в пикселях
+ */
+export function getChainHeight(startBlock, workspaceSVG) {
+    if (!startBlock) return 0;
+    
+    const chain = getChainBlocks(startBlock, workspaceSVG);
+    if (chain.length === 0) return 0;
+    
+    let totalHeight = 0;
+    
+    for (let i = 0; i < chain.length; i++) {
+        const block = chain[i];
+        const blockType = block.dataset.type;
+        const blockForm = BLOCK_FORMS[blockType] || {};
+        const pathHeight = getBlockPathHeight(block);
+        
+        if (i === 0) {
+            // Первый блок: берем полную высоту
+            totalHeight += pathHeight;
+        } else {
+            // Последующие блоки: pathHeight уже учитывает перекрытие коннекторов
+            // bottomOffset и topOffset уже включены в pathHeight каждого блока
+            // Поэтому просто суммируем pathHeight всех блоков
+            totalHeight += pathHeight;
+        }
+    }
+    
+    // Выводим информацию о длине цепи
+    console.log('[BlockChain] getChainHeight:', {
+        startBlockId: startBlock.dataset.instanceId,
+        startBlockType: startBlock.dataset.type,
+        chainLength: chain.length,
+        chainHeight: totalHeight,
+        chainBlocks: chain.map(b => ({
+            id: b.dataset.instanceId,
+            type: b.dataset.type,
+            pathHeight: getBlockPathHeight(b)
+        }))
+    });
+    
+    return totalHeight;
+}
+
 export function moveChain(topBlock, deltaX, deltaY, workspaceSVG) {
     const chain = getChainBlocks(topBlock, workspaceSVG);
     
@@ -82,7 +149,7 @@ export function moveChain(topBlock, deltaX, deltaY, workspaceSVG) {
     });
 }
 
-export function breakChain(upperBlock, lowerBlock) {
+export function breakChain(upperBlock, lowerBlock, workspaceSVG = null) {
     if (!upperBlock || !lowerBlock) return;
     
     // Разрываем связи
@@ -92,15 +159,34 @@ export function breakChain(upperBlock, lowerBlock) {
     lowerBlock.dataset.parent = '';
     lowerBlock.dataset.topConnected = 'false';
     lowerBlock.dataset.topLevel = 'true';
+    
+    // Выводим высоту обеих частей разорванной цепи, если workspaceSVG доступен
+    if (workspaceSVG) {
+        const upperBlockParent = upperBlock.dataset.parent 
+            ? workspaceSVG.querySelector(`[data-instance-id="${upperBlock.dataset.parent}"]`)
+            : null;
+        const topLevelBlock = upperBlockParent || upperBlock;
+        getChainHeight(topLevelBlock, workspaceSVG);
+        getChainHeight(lowerBlock, workspaceSVG);
+    }
 }
 
-export function connectChains(upperChainBottom, lowerChainTop) {    
+export function connectChains(upperChainBottom, lowerChainTop, workspaceSVG = null) {    
     upperChainBottom.dataset.next = lowerChainTop.dataset.instanceId;
     upperChainBottom.dataset.bottomConnected = 'true';
     
     lowerChainTop.dataset.parent = upperChainBottom.dataset.instanceId;
     lowerChainTop.dataset.topConnected = 'true';
     lowerChainTop.dataset.topLevel = 'false';
+    
+    // Выводим высоту новой объединенной цепи, если workspaceSVG доступен
+    if (workspaceSVG) {
+        const upperBlockParent = upperChainBottom.dataset.parent 
+            ? workspaceSVG.querySelector(`[data-instance-id="${upperChainBottom.dataset.parent}"]`)
+            : null;
+        const topLevelBlock = upperBlockParent || upperChainBottom;
+        getChainHeight(topLevelBlock, workspaceSVG);
+    }
 }
 
 export function insertBlockBetween(upperBlock, insertBlock, lowerBlock, workspaceSVG) {
@@ -122,6 +208,14 @@ export function insertBlockBetween(upperBlock, insertBlock, lowerBlock, workspac
     insertChainBottom.dataset.bottomConnected = 'true';
     
     lowerBlock.dataset.topConnected = 'true';
+    
+    // Выводим высоту новой объединенной цепи
+    const upperBlockParent = upperBlock.dataset.parent 
+        ? workspaceSVG.querySelector(`[data-instance-id="${upperBlock.dataset.parent}"]`)
+        : null;
+    const topLevelBlock = upperBlockParent || upperBlock;
+    
+    getChainHeight(topLevelBlock, workspaceSVG);
 }
 
 export function exportChainToJSON(topBlock, workspaceSVG) {

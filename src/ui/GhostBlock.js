@@ -81,11 +81,9 @@ export class GhostBlock {
                 if (updatedAfterRelease) actualConnectorPos = updatedAfterRelease;
             }
         }
-
         const blockClone = draggedBlock.cloneNode(true);
         blockClone.classList.add('ghost-block');
         blockClone.removeAttribute('data-instance-id');
-
         // Удаляем весь текст из ghostblock
         const textElements = blockClone.querySelectorAll('text');
         textElements.forEach(text => text.remove());
@@ -128,8 +126,8 @@ export class GhostBlock {
         
         const workspaceRect = this.containerSVG.getBoundingClientRect();
         const draggedBlockRect = draggedBlock.getBoundingClientRect();
-        const offsetX = draggedConnectorPos.x - draggedBlockRect.left;
-        const offsetY = draggedConnectorPos.y - draggedBlockRect.top;
+        const offsetX = draggedConnectorPos.x - draggedBlockRect.left+1;
+        const offsetY = draggedConnectorPos.y - draggedBlockRect.top+2;
 
         let finalX = actualConnectorPos.x - workspaceRect.left - offsetX;
         let finalY = actualConnectorPos.y - workspaceRect.top - offsetY;
@@ -147,17 +145,17 @@ export class GhostBlock {
             finalX = targetTransform.x;
             // Правильная формула для MIDDLE: позиция целевого блока + его высота - его bottomOffset + topOffset перетаскиваемого
             finalY = targetTransform.y + targetPathHeight - targetBottomOffset + draggedTopOffset;
-        } else {
-            finalX += 1;
-            finalY += 1;
-            this._log('show(): non-MIDDLE final pos', { finalX, finalY });
-        }
-
-        blockClone.setAttribute('transform', `translate(${finalX}, ${finalY})`);
-        blockClone.style.pointerEvents = 'none';
-
+            blockClone.setAttribute('transform', `translate(${finalX}, ${finalY})`);
+            blockClone.style.pointerEvents = 'none';
+            this.containerSVG.appendChild(blockClone);
+            this.ghostElement = blockClone;
+        } 
+        else{
+            blockClone.setAttribute('transform', `translate(${finalX+2}, ${finalY+3})`);
+            blockClone.style.pointerEvents = 'none';
         this.containerSVG.appendChild(blockClone);
         this.ghostElement = blockClone;
+        }
     }
     
     removeGhostElement() {

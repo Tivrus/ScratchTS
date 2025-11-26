@@ -1,5 +1,6 @@
 
 import { BLOCK_FORMS, SVG_NS } from '../utils/Constants.js';
+import { getTopLevelBlock } from './BlockChain.js';
 
 const CONNECTOR_THRESHOLD = 50;
 const CBLOCK_MIDDLE_THRESHOLD = 25; // уменьшенная зона для внешнего MIDDLE у c-block с нижней цепью
@@ -118,12 +119,102 @@ export function getConnectorPosition(block, connectorType) {
     return positions[connectorType] || null;
 }
 
-export function findNearestConnector(draggedBlock, allBlocks) {
+/**
+ * Получает прямоугольник зоны коннекта для проверки пересечения
+ */
+function getConnectorZone(targetBlock, targetConnectorType) {
+    if (!targetBlock) return null;
+    
+    const targetPos = getConnectorPosition(targetBlock, targetConnectorType);
+    if (!targetPos) return null;
+    
+    const blockRect = targetBlock.getBoundingClientRect();
+    const blockType = targetBlock.dataset.type;
+    const blockForm = BLOCK_FORMS[blockType];
+    
+    // Ширина зоны равна ширине блока
+    const zoneWidth = parseFloat(targetBlock.dataset.width) || blockForm?.width || 150;
+    
+    // Высота зоны зависит от типа коннектора
+    let zoneHeight = CONNECTOR_THRESHOLD;
+    if (blockType === 'c-block' && targetConnectorType === ConnectorType.MIDDLE) {
+        const hasExternalBelow = targetBlock.dataset.bottomConnected === 'true' && !!targetBlock.dataset.next;
+        if (hasExternalBelow) {
+            zoneHeight = CBLOCK_MIDDLE_THRESHOLD;
+        }
+    }
+    
+    // Зона выровнена по левому краю блока (с учетом viewBox offset)
+    const viewBoxXOffset = 1;
+    const zoneX = blockRect.left + viewBoxXOffset;
+    
+    // Зона центрирована по Y относительно коннектора
+    let zoneY = targetPos.y - zoneHeight / 2;
+    
+    // Для MIDDLE коннектора у c-block смещаем зону чуть ниже
+    if (blockType === 'c-block' && targetConnectorType === ConnectorType.MIDDLE) {
+        const hasExternalBelow = targetBlock.dataset.bottomConnected === 'true' && !!targetBlock.dataset.next;
+        if (hasExternalBelow) {
+            zoneY += 10;
+        }
+    }
+    
+    return {
+        x: zoneX,
+        y: zoneY,
+        width: zoneWidth,
+        height: zoneHeight
+    };
+}
+
+/**
+ * Проверяет, пересекается ли блок с зоной коннекта
+ */
+function isBlockIntersectingZone(block, zone) {
+    if (!block || !zone) return false;
+    
+    const blockRect = block.getBoundingClientRect();
+    
+    // Проверяем пересечение прямоугольников
+    return !(
+        blockRect.right < zone.x ||
+        blockRect.left > zone.x + zone.width ||
+        blockRect.bottom < zone.y ||
+        blockRect.top > zone.y + zone.height
+    );
+}
+
+/**
+ * Получает первый блок в цепи, ища родительские блоки в предоставленном массиве блоков
+ */
+function getFirstBlockInChain(block, allBlocks) {
+    if (!block || !allBlocks) return block;
+    
+    let currentBlock = block;
+    // Идем вверх по цепи через parent
+    while (currentBlock && currentBlock.dataset.parent) {
+        const parentId = currentBlock.dataset.parent;
+        const parentBlock = allBlocks.find(b => b.dataset.instanceId === parentId);
+        
+        if (parentBlock) {
+            currentBlock = parentBlock;
+        } else {
+            break;
+        }
+    }
+    
+    return currentBlock;
+}
+
+export function findNearestConnector(draggedBlock, allBlocks, workspaceSVG = null) {
     if (!draggedBlock || !allBlocks || allBlocks.length === 0) {
         return null;
     }
 
-    const draggedRect = draggedBlock.getBoundingClientRect();
+    // Получаем первый блок в цепи (или сам блок, если он первый)
+    // Используем allBlocks для поиска, так как при перетаскивании блоки могут быть в dragOverlaySVG
+    const firstBlockInChain = getFirstBlockInChain(draggedBlock, allBlocks);
+
     const draggedType = draggedBlock.dataset.type;
     const draggedConnectors = getBlockConnectors(draggedType, draggedBlock);
     // Нельзя коннектить удерживаемый c-block его внутренними коннекторами
@@ -134,7 +225,7 @@ export function findNearestConnector(draggedBlock, allBlocks) {
     }
 
     let nearestConnection = null;
-    let minDistance = CONNECTOR_THRESHOLD;
+    let minDistance = Infinity;
 
     allBlocks.forEach(targetBlock => {
         if (targetBlock === draggedBlock) return;
@@ -144,38 +235,44 @@ export function findNearestConnector(draggedBlock, allBlocks) {
         const targetConnectors = getBlockConnectors(targetType, targetBlock);
 
         Object.keys(draggedConnectors).forEach(draggedConnectorType => {
-            const draggedPos = getConnectorPosition(draggedBlock, draggedConnectorType);
-            if (!draggedPos) return;
-
             Object.keys(targetConnectors).forEach(targetConnectorType => {
                 if (!canConnect(draggedConnectorType, targetConnectorType, draggedBlock, targetBlock)) return;
 
                 const targetPos = getConnectorPosition(targetBlock, targetConnectorType);
                 if (!targetPos) return;
 
-                // Пер-connectorный порог чувствительности
-                let localThreshold = CONNECTOR_THRESHOLD;
-                if (targetType === 'c-block' && targetConnectorType === ConnectorType.MIDDLE) {
-                    const hasExternalBelow = targetBlock.dataset.bottomConnected === 'true' && !!targetBlock.dataset.next;
-                    if (hasExternalBelow) {
-                        localThreshold = CBLOCK_MIDDLE_THRESHOLD;
-                    }
-                }
+                // Получаем зону коннекта
+                const connectorZone = getConnectorZone(targetBlock, targetConnectorType);
+                if (!connectorZone) return;
 
-                const distance = Math.sqrt(
-                    Math.pow(draggedPos.x - targetPos.x, 2) +
-                    Math.pow(draggedPos.y - targetPos.y, 2)
-                );
-
-                if (distance < Math.min(minDistance, localThreshold)) {
-                    minDistance = Math.min(minDistance, localThreshold);
-                    nearestConnection = {
-                        targetBlock,
-                        targetConnector: targetConnectorType,
-                        draggedConnector: draggedConnectorType,
-                        distance,
-                        position: targetPos
+                // Проверяем пересечение первого блока в цепи с зоной коннекта
+                if (isBlockIntersectingZone(firstBlockInChain, connectorZone)) {
+                    // Вычисляем расстояние от центра первого блока до коннектора для сортировки
+                    const firstBlockRect = firstBlockInChain.getBoundingClientRect();
+                    const firstBlockCenter = {
+                        x: firstBlockRect.left + firstBlockRect.width / 2,
+                        y: firstBlockRect.top + firstBlockRect.height / 2
                     };
+                    
+                    const distance = Math.sqrt(
+                        Math.pow(firstBlockCenter.x - targetPos.x, 2) +
+                        Math.pow(firstBlockCenter.y - targetPos.y, 2)
+                    );
+
+                    // Выбираем ближайшее пересечение
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        // Получаем позицию соответствующего коннектора на перетаскиваемом блоке для отображения ghost block
+                        const draggedConnectorPos = getConnectorPosition(draggedBlock, draggedConnectorType);
+                        nearestConnection = {
+                            targetBlock,
+                            targetConnector: targetConnectorType,
+                            draggedConnector: draggedConnectorType,
+                            distance,
+                            position: targetPos,
+                            draggedConnectorPos: draggedConnectorPos || firstBlockCenter
+                        };
+                    }
                 }
             });
         });

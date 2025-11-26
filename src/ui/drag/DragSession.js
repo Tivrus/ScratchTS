@@ -142,11 +142,13 @@ export default class DragSession {
             this.lastUpdateTime = now;
         }
 
-        const nearestConnection = findNearestConnector(element, this.cachedWorkspaceBlocks);
+        const nearestConnection = findNearestConnector(element, this.cachedWorkspaceBlocks, this.workspaceSVG);
 
         if (nearestConnection) {
             const targetConnectorPos = getConnectorPosition(nearestConnection.targetBlock, nearestConnection.targetConnector);
-            const draggedConnectorPos = getConnectorPosition(element, nearestConnection.draggedConnector);
+            // Используем draggedConnectorPos из nearestConnection, если он есть, иначе вычисляем
+            const draggedConnectorPos = nearestConnection.draggedConnectorPos || 
+                getConnectorPosition(element, nearestConnection.draggedConnector);
 
             if (nearestConnection.targetConnector === ConnectorType.MIDDLE) {
                 this.chainSplitManager.ensureSplit(nearestConnection.targetBlock, element);
@@ -253,7 +255,7 @@ export default class DragSession {
             }
 
             const allWorkspaceBlocks = Array.from(this.workspaceSVG.querySelectorAll('.workspace-block'));
-            const nearestConnection = findNearestConnector(element, allWorkspaceBlocks);
+            const nearestConnection = findNearestConnector(element, allWorkspaceBlocks, this.workspaceSVG);
 
             if (nearestConnection) {
                 this.ghostBlock.hide();
