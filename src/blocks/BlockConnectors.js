@@ -75,36 +75,28 @@ export function getBlockConnectors(blockType, block = null) {
 }
 
 export function getConnectorPosition(block, connectorType) {
-    if (!block) return null;
     if (block.classList.contains('ghost-block')) return null;
 
     const blockRect = block.getBoundingClientRect();
     const blockType = block.dataset.type;
     const blockForm = BLOCK_FORMS[blockType];
     
-    if (!blockForm) {
-        console.warn('[BlockConnectors] Unknown block type:', blockType);
-        return null;
-    }
-    
     // Получаем смещения из Constants
     const bottomOffset = blockForm.bottomOffset || 0;
     const topOffset = blockForm.topOffset || 0;
     
-    // ViewBox начинается с (-1, -1), поэтому path с координатой x=0 
     // фактически рисуется на 1 пиксель правее левого края SVG
     // Нужно учесть это смещение для правильного позиционирования коннектора
-    const viewBoxXOffset = 1;
-    const connectorX = blockRect.left + viewBoxXOffset;
+    const connectorX = blockRect.left;
 
     const positions = {
         [ConnectorType.TOP]: {
             x: connectorX,
-            y: blockRect.top + topOffset + 1 // +1 для viewBox Y offset
+            y: blockRect.top + topOffset // +1 для viewBox Y offset
         },
         [ConnectorType.BOTTOM]: {
             x: connectorX,
-            y: blockRect.bottom - bottomOffset + 1
+            y: blockRect.bottom - bottomOffset
         },
         [ConnectorType.INNER_TOP]: {
             x: connectorX + 16, // Смещение вправо для внутренних блоков
@@ -432,14 +424,6 @@ export function updateDebugOverlay(workspaceSVG, dragOverlaySVG = null) {
             rect.setAttribute('rx', '4');
             rect.setAttribute('ry', '4');
             
-            const dot = document.createElementNS(SVG_NS, 'circle');
-            dot.setAttribute('cx', centerX);
-            dot.setAttribute('cy', centerY);
-            dot.setAttribute('r', '5');
-            dot.setAttribute('fill', '#ff0000');
-            dot.setAttribute('stroke', '#ffffff');
-            dot.setAttribute('stroke-width', '1.5');
-            dot.setAttribute('pointer-events', 'none');
             
             const label = document.createElementNS(SVG_NS, 'text');
             label.setAttribute('x', centerX + 8);
@@ -453,7 +437,6 @@ export function updateDebugOverlay(workspaceSVG, dragOverlaySVG = null) {
             label.setAttribute('style', 'text-shadow: 0 0 3px rgba(0,0,0,0.8);');
             
             debugOverlay.appendChild(rect);
-            debugOverlay.appendChild(dot);
             debugOverlay.appendChild(label);
         });
     });

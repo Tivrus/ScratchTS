@@ -151,7 +151,7 @@ export class GhostBlock {
             this.ghostElement = blockClone;
         } 
         else{
-            blockClone.setAttribute('transform', `translate(${finalX+2}, ${finalY+3})`);
+            blockClone.setAttribute('transform', `translate(${finalX+1}, ${finalY+3})`);
             blockClone.style.pointerEvents = 'none';
         this.containerSVG.appendChild(blockClone);
         this.ghostElement = blockClone;

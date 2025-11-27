@@ -114,7 +114,7 @@ export function createBlockTemplate(blockConfig, { color } = {}) {
     const { id, type } = blockConfig;
     const svgContent = createBlockSVGContent(blockConfig, { color });
 
-    const { pathElement, labelElements, width, height, viewBox } = svgContent;
+    const {pathElement, labelElements, width, height, viewBox } = svgContent;
 
     const template = document.createElement('div');
     template.classList.add('block-template');
@@ -143,7 +143,7 @@ export function createWorkspaceBlock(blockConfig, { color, x = 0, y = 0 } = {}) 
     const { id, type } = blockConfig;
     const svgContent = createBlockSVGContent(blockConfig, { color });
 
-    const { pathElement, labelElements, width, height } = svgContent;
+    const {pathElement, labelElements, width, height } = svgContent;
 
     const group = createSVGElement('g');
     group.classList.add('workspace-block');
