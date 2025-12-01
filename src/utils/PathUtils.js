@@ -134,4 +134,4 @@ class PathUtils {
   }
 }
 
-export default PathUtils;
+export {PathUtils};

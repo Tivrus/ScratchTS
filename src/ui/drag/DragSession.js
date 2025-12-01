@@ -1,17 +1,29 @@
-import { findNearestConnector, getConnectorPosition, ConnectorType } from '../../blocks/BlockConnectors.js';
-import { getAllChainBlocks } from '../../blocks/BlockChain.js';
-import { saveWorkspaceState } from '../../utils/WorkspaceState.js';
-import { updateDebugOverlay } from '../../blocks/BlockConnectors.js';
-import {
-    getTranslateValues,
-    isPointerInsideWorkspace,
-    isPointerInsideSidebar,
-    isBlockInsideSidebar,
-    isPointerInsideTrash
+import { 
+    getTranslateValues, 
+    isPointerInsideWorkspace, 
+    isPointerInsideSidebar, 
+    isBlockInsideSidebar, 
+    isPointerInsideTrash 
 } from './DragHelpers.js';
-import { requestAnimFrame, cancelAnimFrame } from '../../utils/DOMUtils.js';
 
-export default class DragSession {
+import { 
+    findNearestConnector, 
+    getConnectorPosition, 
+    ConnectorType 
+} from '../../blocks/BlockConnectors.js';
+
+import { 
+    requestAnimFrame, 
+    cancelAnimFrame, 
+    getBoundingClientRectRounded 
+} from '../../utils/DOMUtils.js';
+
+import {getAllChainBlocks} from '../../blocks/BlockChain.js';
+import {saveWorkspaceState} from '../../utils/WorkspaceState.js';
+import {updateDebugOverlay} from '../../blocks/BlockConnectors.js';
+
+
+export class DragSession {
     constructor({
         workspace,
         workspaceSVG,
@@ -116,7 +128,7 @@ export default class DragSession {
 
         const event = this.activeDrag.lastEvent;
         const { element, offsetX, offsetY, isDraggingChain } = this.activeDrag;
-        const overlayRect = this.dragOverlaySVG.getBoundingClientRect();
+        const overlayRect = getBoundingClientRectRounded(this.dragOverlaySVG);
 
         const newX = event.clientX - overlayRect.left - offsetX;
         const newY = event.clientY - overlayRect.top - offsetY;
@@ -219,9 +231,9 @@ export default class DragSession {
             });
         } else if (blockInSidebar && !pointerInSidebar) {
             const currentTransform = getTranslateValues(element.getAttribute('transform'));
-            const workspaceRect = this.workspaceSVG.getBoundingClientRect();
-            const overlayRect = this.dragOverlaySVG.getBoundingClientRect();
-            const sidebarRect = this.sidebar.getBoundingClientRect();
+            const workspaceRect = getBoundingClientRectRounded(this.workspaceSVG);
+            const overlayRect = getBoundingClientRectRounded(this.dragOverlaySVG);
+            const sidebarRect = getBoundingClientRectRounded(this.sidebar);
 
             const adjustedX = sidebarRect.right - overlayRect.left + 10;
             const adjustedY = currentTransform.y;
@@ -234,8 +246,8 @@ export default class DragSession {
             this.workspaceSVG.appendChild(element);
             this.notifyWorkspaceChange();
         } else if (insideWorkspace) {
-            const workspaceRect = this.workspaceSVG.getBoundingClientRect();
-            const overlayRect = this.dragOverlaySVG.getBoundingClientRect();
+            const workspaceRect = getBoundingClientRectRounded(this.workspaceSVG);
+            const overlayRect = getBoundingClientRectRounded(this.dragOverlaySVG);
 
             if (isDraggingChain) {
                 const allBlocks = getAllChainBlocks(element, this.dragOverlaySVG);

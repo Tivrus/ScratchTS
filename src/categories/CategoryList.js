@@ -1,4 +1,5 @@
-import { categories } from '../data/CategoriesData.js';
+import {categories} from '../data/CategoriesData.js';
+
 
 export class CategoryList {
     constructor(containerId, { onCategoryChange } = {}) {

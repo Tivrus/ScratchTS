@@ -4,8 +4,6 @@ export const BLOCK_FORMS = {
         viewBox: '0 0 140 73',
         width: 140,
         height: 73,
-        pathHeight: 66, // Реальная высота path (16.5 - 5.5 + 40 + 15)
-        topOffset: 0,
         bottomOffset: 9
     },
     'default-block': {
@@ -13,17 +11,13 @@ export const BLOCK_FORMS = {
         viewBox: '0 0 152 56',
         width: 152,
         height: 56,
-        pathHeight: 58, // Реальная высота path (0 + 4 + 40 + 4)
-        topOffset: 0,
-        bottomOffset: 9
+        bottomOffset: 8
     },
     'c-block': {
         path: 'm4,1 h8 c1.56,0,2.3,0.72,3.29,1.71 l4,4 c1.01,1.01,2.27,2.29,4.71,2.29 h12 c2.44,0,3.7,-1.28,4.71,-2.29 l4,-4 c0.99,-0.99,1.73,-1.71,3.29,-1.71 h120.22 c0.79,0,1.56,0.32,2.12,0.88 c0.56,0.56,0.88,1.33,0.88,2.12 v40 c0,0.8,-0.32,1.56,-0.88,2.12 c-0.56,0.56,-1.33,0.88,-2.12,0.88 h-104.22 c-2.44,0,-3.7,1.28,-4.71,2.29 l-4,4 c-0.99,0.99,-1.73,1.71,-3.29,1.71 h-12 c-1.56,0,-2.3,-0.72,-3.29,-1.71 l-4,-4 c-1.01,-1.01,-2.27,-2.29,-4.71,-2.29 h-8 c-1.33,0,-2.6,0.53,-3.54,1.46 c-0.94,0.94,-1.46,2.21,-1.46,3.54 v16 c0,1.33,0.53,2.6,1.46,3.54 c0.94,0.94,2.21,1.46,3.54,1.46 h8 c1.56,0,2.3,0.72,3.29,1.71 l4,4 c1.01,1.01,2.27,2.29,4.71,2.29 h12 c2.44,0,3.7,-1.28,4.71,-2.29 l4,-4 c0.99,-0.99,1.73,-1.71,3.29,-1.71 h104.22 c0.79,0,1.56,0.32,2.12,0.88 c0.56,0.56,0.88,1.33,0.88,2.12 v24 c0,0.8,-0.32,1.56,-0.88,2.12 c-0.56,0.56,-1.33,0.88,-2.12,0.88 h-120.22 c-2.44,0,-3.7,1.28,-4.71,2.29 l-4,4 c-0.99,0.99,-1.73,1.71,-3.29,1.71 h-12 c-1.56,0,-2.3,-0.72,-3.29,-1.71 l-4,-4 c-1.01,-1.01,-2.27,-2.29,-4.71,-2.29 h-8 c-0.8,0,-1.56,-0.32,-2.12,-0.88 c-0.56,-0.56,-0.88,-1.32,-0.88,-2.12 v-96 c0,-0.8,0.32,-1.56,0.88,-2.12 c0.56,-0.56,1.33,-0.88,2.12,-0.88 z',
         viewBox: '0 0 173 112',
         width: 173,
         height: 112,
-        pathHeight: 104, // Реальная высота path
-        topOffset: -1,
         bottomOffset: 10
     },
     'stop-block': {
@@ -31,17 +25,13 @@ export const BLOCK_FORMS = {
         viewBox: '0 0 124 48',
         width: 124,
         height: 48,
-        pathHeight: 48,
-        topOffset: 0,
         bottomOffset: 2
     },
     'round-block': {
         path: 'm20,1 h68.45 c5.04,0,9.87,2,13.43,5.57 c3.56,3.56,5.56,8.4,5.56,13.43 c0,5.04,-2,9.87,-5.56,13.43 c-3.56,3.56,-8.4,5.57,-13.43,5.57 h-68.45 c-5.04,0,-9.87,-2,-13.43,-5.57 c-3.56,-3.56,-5.57,-8.4,-5.57,-13.43 c0,-5.04,2,-9.87,5.57,-13.43 c3.56,-3.56,8.4,-5.57,13.43,-5.57 z',
         viewBox: '0 0 109 40',
-        width: 111,
-        height: 42,
-        pathHeight: 40,
-        topOffset: 0,
+        width: 109,
+        height: 40,
         bottomOffset: 2
     },
     'sharp-block': {
@@ -49,8 +39,6 @@ export const BLOCK_FORMS = {
         viewBox: '0 0 102 40',
         width: 102,
         height: 40,
-        pathHeight: 40,
-        topOffset: 0,
         bottomOffset: 2
     }
 };
@@ -58,8 +46,27 @@ export const BLOCK_FORMS = {
 export const DEFAULT_BLOCK_COLOR = '#4c97ff';
 
 // Константы для позиционирования блоков
-export const DEFAULT_BLOCK_HEIGHT = 58; // Стандартная высота блока
+export const DEFAULT_BLOCK_HEIGHT = 56; // Стандартная высота блока
 export const CBLOCK_NESTED_X_OFFSET = 16; // Смещение по X для каждого уровня вложенности в c-block
+export const C_BLOCK_EMPTY_INNER_SPACE = 24; // Пустое пространство внутри c-block
+// Константы для зон коннекторов
+export const CONNECTOR_THRESHOLD = 32; // Порог расстояния для активации зоны коннекта
+export const CBLOCK_MIDDLE_THRESHOLD = 28; // Уменьшенная зона для внешнего MIDDLE у c-block с нижней цепью
+export const CONNECTOR_SOCKET_HEIGHT = 8; // Высота сокета коннектора
+// Константы для смещений позиций коннекторов
+export const CONNECTOR_OFFSETS = {
+    TOP_Y: -16, // Смещение по Y для TOP коннектора
+    BOTTOM_Y: 16, // Смещение по Y для BOTTOM коннектора
+    INNER_TOP_X: 16, // Смещение по X для INNER_TOP коннектора (внутри c-block)
+    INNER_TOP_Y: 48, // Позиция по Y для INNER_TOP коннектора от верха блока
+    CBLOCK_MIDDLE_ZONE_Y: 10 // Дополнительное смещение зоны для MIDDLE коннектора у c-block
+};
+
+// Константы для Ghost Block
+export const GHOST_BLOCK = {
+    FILL_COLOR: '#808080', // Цвет заливки для ghost block
+    STROKE_COLOR: '#606060' // Цвет обводки для ghost block
+};
 
 // SVG namespace
 export const SVG_NS = 'http://www.w3.org/2000/svg';

@@ -69,3 +69,27 @@ export function cancelAnimFrame(id) {
     }
 }
 
+/**
+ * Получает размеры и позицию элемента с округленными height и width
+ * Использует Math.floor для округления height и width, чтобы избежать дробных значений
+ * @param {HTMLElement} element - Элемент для получения размеров
+ * @returns {DOMRect} Объект с размерами и позицией, аналогичный getBoundingClientRect(), но с округленными height и width
+ */
+export function getBoundingClientRectRounded(element) {
+    const rect = element.getBoundingClientRect();
+    const roundedWidth = Math.floor(rect.width || 0);
+    const roundedHeight = Math.floor(rect.height || 0);
+    
+    const result = {
+        x: rect.x ?? rect.left ?? 0,
+        y: rect.y ?? rect.top ?? 0,
+        left: rect.left ?? 0,
+        top: rect.top ?? 0,
+        right: (rect.left ?? 0) + roundedWidth,
+        bottom: (rect.top ?? 0) + roundedHeight,
+        width: roundedWidth,
+        height: roundedHeight
+    };    
+    return result;
+}
+

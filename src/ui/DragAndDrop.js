@@ -1,4 +1,4 @@
-import DragAndDropController from './drag/DragAndDropController.js';
+import {DragAndDropController} from './drag/DragAndDropController.js';
 
 export function initializeDragAndDrop({
     workspaceSelector = '#workspace',
@@ -21,5 +21,4 @@ export function initializeDragAndDrop({
     return controller;
 }
 
-export default initializeDragAndDrop;
 

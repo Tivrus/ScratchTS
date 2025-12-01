@@ -1,4 +1,5 @@
-import { exportWorkspaceToJSON } from '../blocks/BlockChain.js';
+import {exportWorkspaceToJSON} from '../blocks/BlockChain.js';
+
 
 let autoSaveEnabled = true;
 let lastSavedState = null;

@@ -1,6 +1,11 @@
-import { getChainBlocks } from './BlockChain.js';
-import { BLOCK_FORMS, DEFAULT_BLOCK_HEIGHT } from '../utils/Constants.js';
-import { getTranslateValues } from '../utils/DOMUtils.js';
+import {
+    BLOCK_FORMS,
+    DEFAULT_BLOCK_HEIGHT
+} from '../utils/Constants.js';
+
+import {getChainBlocks} from './BlockChain.js';
+import {getTranslateValues} from '../utils/DOMUtils.js';
+
 
 export function getSpecialBlockType(block) {
     if (!block || !block.dataset) return null;
@@ -28,7 +33,7 @@ export function hasBottomConnector(block) {
 function getBlockPathHeight(block) {
     const blockType = block.dataset.type;
     const blockForm = BLOCK_FORMS[blockType];
-    return blockForm?.pathHeight || parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT;
+    return blockForm?.height || parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT;
 }
 
 export function handleStartBlockInsertion(startBlock, targetBlock, lowerBlock, workspaceSVG) {

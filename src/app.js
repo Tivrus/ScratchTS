@@ -1,10 +1,11 @@
-import { initializeCategories } from './categories/CategoryList.js';
-import { initializeBlockLibrary } from './blocks/BlockLibrary.js';
-import { initializeDragAndDrop } from './ui/DragAndDrop.js';
-import { loadWorkspaceState } from './utils/WorkspaceState.js';
-import { loadWorkspaceFromJSON } from './utils/WorkspaceLoader.js';
-import { exportWorkspaceToJSON } from './blocks/BlockChain.js';
-import { saveWorkspaceState } from './utils/WorkspaceState.js';
+import {initializeCategories} from './categories/CategoryList.js';
+import {initializeBlockLibrary} from './blocks/BlockLibrary.js';
+import {initializeDragAndDrop} from './ui/DragAndDrop.js';
+import {loadWorkspaceState} from './utils/WorkspaceState.js';
+import {loadWorkspaceFromJSON} from './utils/WorkspaceLoader.js';
+import {exportWorkspaceToJSON} from './blocks/BlockChain.js';
+import {saveWorkspaceState} from './utils/WorkspaceState.js';
+
 
 document.addEventListener('DOMContentLoaded', async () => {
     const blockLibrary = initializeBlockLibrary();

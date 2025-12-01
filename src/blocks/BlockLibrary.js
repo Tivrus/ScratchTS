@@ -1,6 +1,7 @@
-import { categories } from '../data/CategoriesData.js';
-import { blocks } from '../data/BlocksData.js';
-import { createBlockTemplate } from './BlockFactory.js';
+import {categories} from '../data/CategoriesData.js';
+import {blocks} from '../data/BlocksData.js';
+import {createBlockTemplate} from './BlockFactory.js';
+
 
 function findCategory(categoryId) {
     return categories.find((category) => category.id === categoryId) ?? null;

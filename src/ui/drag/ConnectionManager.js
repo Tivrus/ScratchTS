@@ -1,16 +1,49 @@
-import { getConnectorPosition, ConnectorType } from '../../blocks/BlockConnectors.js';
-import { getChainBlocks, getChainHeight, getTopLevelBlock } from '../../blocks/BlockChain.js';
-import { handleSpecialBlockInsertion, canConnectFromTop, canConnectFromBottom, handleMiddleInsertionWithSpecialBlocks } from '../../blocks/SpecialBlocks.js';
-import { isCBlock, insertBlockInside, getInsertPosition, syncCBlockHeight, getNestedLevel, calculateChainBlockX } from '../../blocks/CBlock.js';
-import { getBlockPathHeight, getTranslateValues } from './DragHelpers.js';
-import { BLOCK_FORMS, CBLOCK_NESTED_X_OFFSET } from '../../utils/Constants.js';
+import { 
+    handleSpecialBlockInsertion, 
+    canConnectFromTop, 
+    canConnectFromBottom, 
+    handleMiddleInsertionWithSpecialBlocks 
+} from '../../blocks/SpecialBlocks.js';
+
+import { 
+    isCBlock, 
+    insertBlockInside, 
+    getInsertPosition, 
+    syncCBlockHeight, 
+    getNestedLevel, 
+    calculateChainBlockX 
+} from '../../blocks/CBlock.js';
+
+import { 
+    BLOCK_FORMS, 
+    CBLOCK_NESTED_X_OFFSET, 
+    CONNECTOR_THRESHOLD, 
+    CONNECTOR_SOCKET_HEIGHT, 
+    GHOST_BLOCK 
+} from '../../utils/Constants.js';
+
+import { 
+    getChainBlocks, 
+    getChainHeight, 
+    getTopLevelBlock 
+} from '../../blocks/BlockChain.js';
+
+import { 
+    getBlockPathHeight, 
+    getTranslateValues 
+} from './DragHelpers.js';
+
+import { 
+    getConnectorPosition, 
+    ConnectorType 
+} from '../../blocks/BlockConnectors.js';
+
+import {getBoundingClientRectRounded} from '../../utils/DOMUtils.js';
 
 
-export default class ConnectionManager {
+export class ConnectionManager {
     constructor(workspaceSVG) {
         this.workspaceSVG = workspaceSVG;
-        this._debug = () => typeof window !== 'undefined' && !!window.__CB_DEBUG;
-        this._log = (...args) => { if (this._debug()) console.log('[ConnectionManager]', ...args); };
     }
 
     findContainingCBlock(block) {
@@ -29,19 +62,426 @@ export default class ConnectionManager {
         return null;
     }
 
+    /**
+     * Вычисляет Y-позицию блока на основе типа коннектора
+     * @param {string} connectorType - Тип коннектора (TOP или BOTTOM)
+     * @param {number} connectorCenterY - Y-координата середины коннектора
+     * @param {number} draggedBlockHeight - Высота перетаскиваемого блока
+     * @returns {number} Y-позиция для блока
+     */
+    calculateBlockYPosition(connectorType, connectorCenterY, draggedBlockHeight) {
+        if (connectorType === ConnectorType.TOP) {
+            return connectorCenterY + CONNECTOR_THRESHOLD / 2 - (draggedBlockHeight - CONNECTOR_SOCKET_HEIGHT);
+        } else if (connectorType === ConnectorType.BOTTOM) {
+            return connectorCenterY - CONNECTOR_THRESHOLD / 2;
+        }
+    }
+
+    /**
+     * Сохраняет текущие позиции блоков в цепи
+     * @param {Array} chain - Массив блоков в цепи
+     * @returns {Map} Map с сохраненными позициями (instanceId -> {x, y})
+     */
+    saveChainTransforms(chain) {
+        const transforms = new Map();
+        chain.forEach(block => {
+            transforms.set(block.dataset.instanceId, getTranslateValues(block.getAttribute('transform')));
+        });
+        return transforms;
+    }
+
+    /**
+     * Позиционирует все блоки в цепи относительно первого блока
+     * @param {Array} chain - Массив блоков в цепи
+     * @param {HTMLElement} firstBlock - Первый блок в цепи (для расчета X)
+     * @param {number} startX - Начальная X координата
+     * @param {number} startY - Начальная Y координата
+     */
+    positionChainBlocks(chain, firstBlock, startX, startY) {
+        if (chain.length === 0) return;
+
+        chain[0].setAttribute('transform', `translate(${startX}, ${startY})`);
+
+        if (chain.length > 1) {
+            let currentY = startY;
+            for (let i = 1; i < chain.length; i++) {
+                const block = chain[i];
+                const prevBlock = chain[i - 1];
+                const prevForm = BLOCK_FORMS[prevBlock.dataset.type] || {};
+                const nextForm = BLOCK_FORMS[block.dataset.type] || {};
+                const prevPathHeight = getBlockPathHeight(prevBlock);
+                const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0);
+                currentY += joinDelta;
+
+                const blockX = calculateChainBlockX(firstBlock, block, this.workspaceSVG);
+                block.setAttribute('transform', `translate(${blockX}, ${currentY})`);
+            }
+        }
+    }
+
+    /**
+     * Сдвигает внутренние блоки c-block на указанное смещение по Y
+     * @param {HTMLElement} cBlock - C-block, внутренние блоки которого нужно сдвинуть
+     * @param {number} deltaY - Смещение по Y
+     */
+    shiftInnerBlocks(cBlock, deltaY) {
+        if (!cBlock || !isCBlock(cBlock)) return;
+
+        const substackId = cBlock.dataset.substack;
+        if (!substackId) return;
+
+        const firstInner = this.workspaceSVG.querySelector(`[data-instance-id="${substackId}"]`);
+        if (!firstInner) return;
+
+        const innerChain = getChainBlocks(firstInner, this.workspaceSVG);
+        const cBlockTransform = getTranslateValues(cBlock.getAttribute('transform'));
+
+        innerChain.forEach(inner => {
+            const t = getTranslateValues(inner.getAttribute('transform'));
+            const nestedLevel = getNestedLevel(inner, this.workspaceSVG);
+            const correctX = cBlockTransform.x + (nestedLevel * CBLOCK_NESTED_X_OFFSET);
+            inner.setAttribute('transform', `translate(${correctX}, ${t.y + deltaY})`);
+
+            if (isCBlock(inner)) {
+                this.shiftInnerBlocks(inner, deltaY);
+            }
+        });
+    }
+
+    /**
+     * Сдвигает внутренние блоки всех c-block в цепи на основе изменения их позиций
+     * @param {Array} chain - Массив блоков в цепи
+     * @param {Map} oldTransforms - Старые позиции блоков
+     */
+    shiftInnerBlocksInChain(chain, oldTransforms) {
+        chain.forEach(block => {
+            if (!isCBlock(block)) return;
+
+            const oldT = oldTransforms.get(block.dataset.instanceId) || { x: 0, y: 0 };
+            const newT = getTranslateValues(block.getAttribute('transform'));
+            const deltaY = newT.y - oldT.y;
+
+            if (deltaY !== 0) {
+                this.shiftInnerBlocks(block, deltaY);
+            }
+        });
+    }
+
+    /**
+     * Устанавливает связи между блоками при подключении сверху
+     * @param {HTMLElement} draggedBlock - Перетаскиваемый блок
+     * @param {HTMLElement} lastDraggedBlock - Последний блок в перетаскиваемой цепи
+     * @param {HTMLElement} targetBlock - Целевой блок
+     */
+    connectBlocksTop(draggedBlock, lastDraggedBlock, targetBlock) {
+        targetBlock.dataset.parent = lastDraggedBlock.dataset.instanceId;
+        targetBlock.dataset.topConnected = 'true';
+        targetBlock.dataset.topLevel = 'false';
+        lastDraggedBlock.dataset.next = targetBlock.dataset.instanceId;
+        lastDraggedBlock.dataset.bottomConnected = 'true';
+        draggedBlock.dataset.topLevel = 'true';
+    }
+
+    /**
+     * Устанавливает связи между блоками при подключении снизу
+     * @param {HTMLElement} draggedBlock - Перетаскиваемый блок
+     * @param {HTMLElement} targetBlock - Целевой блок
+     */
+    connectBlocksBottom(draggedBlock, targetBlock) {
+        draggedBlock.dataset.parent = targetBlock.dataset.instanceId;
+        targetBlock.dataset.next = draggedBlock.dataset.instanceId;
+        draggedBlock.dataset.topConnected = 'true';
+        targetBlock.dataset.bottomConnected = 'true';
+        draggedBlock.dataset.topLevel = 'false';
+    }
+
+    /**
+     * Синхронизирует высоту c-block и выводит высоту цепи
+     * @param {HTMLElement} containingCBlock - C-block, содержащий блоки
+     * @param {HTMLElement} topLevelBlock - Верхний блок цепи для расчета высоты
+     */
+    finalizeConnection(containingCBlock, topLevelBlock) {
+        if (containingCBlock) {
+            syncCBlockHeight(containingCBlock, this.workspaceSVG);
+        }
+
+        if (topLevelBlock) {
+            getChainHeight(topLevelBlock, this.workspaceSVG);
+        }
+    }
+
+    /**
+     * Обрабатывает подключение к INNER_TOP коннектору (внутри c-block)
+     * @param {HTMLElement} draggedBlock - Перетаскиваемый блок
+     * @param {HTMLElement} targetBlock - Целевой c-block
+     */
+    handleInnerTopConnection(draggedBlock, targetBlock) {
+        if (!isCBlock(targetBlock)) {
+            console.warn('[DragAndDrop] INNER connector used on non c-block');
+            draggedBlock.dataset.topLevel = 'true';
+            return;
+        }
+
+        const insertPos = getInsertPosition(targetBlock, this.workspaceSVG);
+        insertBlockInside(targetBlock, draggedBlock, this.workspaceSVG, insertPos.x, insertPos.y, false);
+    }
+
+    /**
+     * Обрабатывает подключение к TOP коннектору (подключение сверху)
+     * @param {HTMLElement} draggedBlock - Перетаскиваемый блок
+     * @param {HTMLElement} targetBlock - Целевой блок
+     * @param {Object} targetConnectorPos - Позиция коннектора целевого блока
+     * @param {Object} draggedConnectorPos - Позиция коннектора перетаскиваемого блока
+     * @param {Object} workspaceRect - Прямоугольник рабочей области
+     * @param {Object} targetTransform - Transform целевого блока
+     */
+    handleTopConnection(draggedBlock, targetBlock, targetConnectorPos, draggedConnectorPos, workspaceRect, targetTransform) {
+        console.log('=== TOP CONNECTOR DEBUG ===');
+        console.log('targetConnector:', ConnectorType.TOP);
+        console.log('draggedConnector:', draggedConnectorPos);
+        console.log('targetBlock:', {
+            id: targetBlock?.dataset?.instanceId,
+            type: targetBlock?.dataset?.type
+        });
+        console.log('draggedBlock:', {
+            id: draggedBlock?.dataset?.instanceId,
+            type: draggedBlock?.dataset?.type
+        });
+        console.log('targetConnectorPos:', targetConnectorPos);
+        console.log('draggedConnectorPos:', draggedConnectorPos);
+
+        if (!canConnectFromTop(draggedBlock, targetBlock, this.workspaceSVG)) {
+            draggedBlock.dataset.topLevel = 'true';
+            return;
+        }
+
+        const draggedChain = getChainBlocks(draggedBlock, this.workspaceSVG);
+        const oldTransforms = this.saveChainTransforms(draggedChain);
+        const lastDraggedBlock = draggedChain[draggedChain.length - 1];
+
+        const draggedBlockRect = getBoundingClientRectRounded(draggedBlock);
+        const offsetX = draggedConnectorPos.x - draggedBlockRect.left;
+
+        console.log('Calculation details:', {
+            draggedBlockRect: {
+                left: draggedBlockRect.left,
+                top: draggedBlockRect.top,
+                width: draggedBlockRect.width,
+                height: draggedBlockRect.height
+            },
+            offsetX: offsetX,
+            workspaceRect: {
+                left: workspaceRect.left,
+                top: workspaceRect.top
+            },
+            targetConnectorPosY: targetConnectorPos.y,
+            draggedConnectorPosY: draggedConnectorPos.y
+        });
+
+        const finalX = targetConnectorPos.x - workspaceRect.left - offsetX;
+        const finalY = this.calculateBlockYPosition(ConnectorType.TOP, targetConnectorPos.y, draggedBlockRect.height);
+
+        console.log('Final position:', {
+            finalX: finalX,
+            finalY: finalY,
+            calculationMethod: 'calculateBlockYPosition with ConnectorType.TOP',
+            note: 'targetConnector is TOP, but using TOP in calculateBlockYPosition'
+        });
+        console.log('=== END TOP CONNECTOR DEBUG ===');
+
+        this.positionChainBlocks(draggedChain, draggedBlock, finalX, finalY);
+        this.shiftInnerBlocksInChain(draggedChain, oldTransforms);
+
+        // Точная стыковка по DOM-коннекторам
+        const lastBottomPos = getConnectorPosition(lastDraggedBlock, ConnectorType.BOTTOM);
+        const targetTopPos = getConnectorPosition(targetBlock, ConnectorType.TOP);
+        const targetChain = getChainBlocks(targetBlock, this.workspaceSVG);
+        const deltaY = (lastBottomPos ? lastBottomPos.y : 0) - (targetTopPos ? targetTopPos.y : 0);
+
+        targetChain.forEach(block => {
+            const blockTransform = getTranslateValues(block.getAttribute('transform'));
+            block.setAttribute('transform', `translate(${finalX}, ${blockTransform.y + deltaY})`);
+        });
+
+        targetChain.forEach(block => {
+            if (isCBlock(block)) {
+                this.shiftInnerBlocks(block, deltaY);
+            }
+        });
+
+        this.connectBlocksTop(draggedBlock, lastDraggedBlock, targetBlock);
+    }
+
+    /**
+     * Обрабатывает подключение к BOTTOM коннектору (подключение снизу)
+     * @param {HTMLElement} draggedBlock - Перетаскиваемый блок
+     * @param {HTMLElement} targetBlock - Целевой блок
+     * @param {Object} targetConnectorPos - Позиция коннектора целевого блока
+     * @param {Object} draggedConnectorPos - Позиция коннектора перетаскиваемого блока
+     * @param {Object} workspaceRect - Прямоугольник рабочей области
+     */
+    handleBottomConnection(draggedBlock, targetBlock, targetConnectorPos, draggedConnectorPos, workspaceRect) {
+        console.log('=== BOTTOM CONNECTOR DEBUG ===');
+        console.log('targetConnector:', ConnectorType.BOTTOM);
+        console.log('draggedConnector:', draggedConnectorPos);
+        console.log('targetBlock:', {
+            id: targetBlock?.dataset?.instanceId,
+            type: targetBlock?.dataset?.type
+        });
+        console.log('draggedBlock:', {
+            id: draggedBlock?.dataset?.instanceId,
+            type: draggedBlock?.dataset?.type
+        });
+        console.log('targetConnectorPos:', targetConnectorPos);
+        console.log('draggedConnectorPos:', draggedConnectorPos);
+
+        if (!canConnectFromBottom(draggedBlock, targetBlock, this.workspaceSVG)) {
+            draggedBlock.dataset.topLevel = 'true';
+            return;
+        }
+
+        const draggedBlockRect = getBoundingClientRectRounded(draggedBlock);
+        const offsetX = draggedConnectorPos.x - draggedBlockRect.left;
+
+        console.log('Calculation details:', {
+            draggedBlockRect: {
+                left: draggedBlockRect.left,
+                top: draggedBlockRect.top,
+                width: draggedBlockRect.width,
+                height: draggedBlockRect.height
+            },
+            offsetX: offsetX,
+            workspaceRect: {
+                left: workspaceRect.left,
+                top: workspaceRect.top
+            },
+            targetConnectorPosY: targetConnectorPos.y,
+            draggedConnectorPosY: draggedConnectorPos.y
+        });
+
+        const finalX = targetConnectorPos.x - workspaceRect.left - offsetX;
+        const finalY = this.calculateBlockYPosition(ConnectorType.BOTTOM, targetConnectorPos.y, draggedBlockRect.height);
+
+        console.log('Final position:', {
+            finalX: finalX,
+            finalY: finalY,
+            calculationMethod: 'calculateBlockYPosition with ConnectorType.BOTTOM',
+            note: 'targetConnector is BOTTOM, using BOTTOM in calculateBlockYPosition'
+        });
+        console.log('=== END BOTTOM CONNECTOR DEBUG ===');
+
+        const draggedChain = getChainBlocks(draggedBlock, this.workspaceSVG);
+        const oldTransforms = this.saveChainTransforms(draggedChain);
+
+        this.positionChainBlocks(draggedChain, targetBlock, finalX, finalY);
+        this.shiftInnerBlocksInChain(draggedChain, oldTransforms);
+
+        this.connectBlocksBottom(draggedBlock, targetBlock);
+    }
+
+    /**
+     * Обрабатывает подключение к MIDDLE коннектору (вставка между блоками)
+     * @param {HTMLElement} draggedBlock - Перетаскиваемый блок
+     * @param {HTMLElement} targetBlock - Целевой блок
+     * @param {Object} targetTransform - Transform целевого блока
+     * @param {HTMLElement} lowerBlock - Блок, который был ниже целевого
+     */
+    handleMiddleConnection(draggedBlock, targetBlock, targetTransform, lowerBlock) {
+        let targetPathHeight = getBlockPathHeight(targetBlock);
+        if (isCBlock(targetBlock)) {
+            targetPathHeight = targetPathHeight - 10;
+        }
+
+        const finalX = calculateChainBlockX(targetBlock, targetBlock, this.workspaceSVG);
+        const targetType = targetBlock.dataset.type;
+        const targetForm = BLOCK_FORMS[targetType];
+        const targetBottomOffset = targetForm?.bottomOffset || 0;
+        const finalY = targetTransform.y + targetPathHeight - targetBottomOffset;
+
+        const draggedChain = getChainBlocks(draggedBlock, this.workspaceSVG);
+        const oldTransforms = this.saveChainTransforms(draggedChain);
+
+        this.positionChainBlocks(draggedChain, targetBlock, finalX, finalY);
+
+        const isSpecialBlock = handleSpecialBlockInsertion(draggedBlock, targetBlock, lowerBlock, this.workspaceSVG);
+        const specialChainHandled = handleMiddleInsertionWithSpecialBlocks(draggedBlock, targetBlock, lowerBlock, this.workspaceSVG);
+
+        if (!isSpecialBlock && !specialChainHandled && lowerBlock) {
+            this.handleMiddleInsertionWithLowerBlock(draggedChain, targetBlock, lowerBlock, finalX, finalY);
+        } else if (!isSpecialBlock && !lowerBlock) {
+            this.connectBlocksBottom(draggedBlock, targetBlock);
+        }
+
+        this.shiftInnerBlocksInChain(draggedChain, oldTransforms);
+    }
+
+    /**
+     * Обрабатывает вставку блока между двумя существующими блоками
+     * @param {Array} insertChain - Цепь вставляемых блоков
+     * @param {HTMLElement} targetBlock - Блок сверху
+     * @param {HTMLElement} lowerBlock - Блок снизу
+     * @param {number} finalX - X координата для позиционирования
+     * @param {number} finalY - Y координата для позиционирования
+     */
+    handleMiddleInsertionWithLowerBlock(insertChain, targetBlock, lowerBlock, finalX, finalY) {
+        const insertChainBottom = insertChain[insertChain.length - 1];
+
+        // Позиционируем все блоки вставляемой цепи
+        let currentY = finalY;
+        for (let i = 1; i < insertChain.length; i++) {
+            const block = insertChain[i];
+            const prevBlock = insertChain[i - 1];
+            const prevForm = BLOCK_FORMS[prevBlock.dataset.type] || {};
+            const nextForm = BLOCK_FORMS[block.dataset.type] || {};
+            const prevPathHeight = getBlockPathHeight(prevBlock);
+            const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0);
+            currentY += joinDelta;
+
+            const blockX = calculateChainBlockX(targetBlock, block, this.workspaceSVG);
+            block.setAttribute('transform', `translate(${blockX}, ${currentY})`);
+        }
+
+        // Вычисляем позицию для нижнего блока
+        const lowerTransform = getTranslateValues(lowerBlock.getAttribute('transform'));
+        const lastInsertedPathHeight = getBlockPathHeight(insertChainBottom);
+        const lastInsertedForm = BLOCK_FORMS[insertChainBottom.dataset.type] || {};
+        const lastInsertedBottomOffset = lastInsertedForm.bottomOffset || 0;
+        const lowerFinalY = (insertChain.length === 1 ? finalY : currentY) + lastInsertedPathHeight - lastInsertedBottomOffset;
+
+        // Сдвигаем нижнюю цепь
+        const lowerChain = getChainBlocks(lowerBlock, this.workspaceSVG);
+        const deltaY = lowerFinalY - lowerTransform.y;
+        console.log('deltaY', deltaY);
+
+        lowerChain.forEach(block => {
+            const blockTransform = getTranslateValues(block.getAttribute('transform'));
+            const blockX = calculateChainBlockX(lowerChain[0], block, this.workspaceSVG);
+            block.setAttribute('transform', `translate(${blockX}, ${blockTransform.y + deltaY})`);
+        });
+
+        // Устанавливаем связи
+        targetBlock.dataset.next = insertChain[0].dataset.instanceId;
+        targetBlock.dataset.bottomConnected = 'true';
+        insertChain[0].dataset.parent = targetBlock.dataset.instanceId;
+        insertChain[0].dataset.topConnected = 'true';
+        insertChain[0].dataset.topLevel = 'false';
+        insertChainBottom.dataset.next = lowerBlock.dataset.instanceId;
+        insertChainBottom.dataset.bottomConnected = 'true';
+        lowerBlock.dataset.parent = insertChainBottom.dataset.instanceId;
+        lowerBlock.dataset.topConnected = 'true';
+    }
+
+    /**
+     * Основной метод для подключения блоков
+     * @param {HTMLElement} draggedBlock - Перетаскиваемый блок
+     * @param {Object} connection - Объект с информацией о подключении
+     * @param {Object} workspaceRect - Прямоугольник рабочей области
+     */
     connectBlocks(draggedBlock, connection, workspaceRect) {
         const { targetBlock, targetConnector, draggedConnector } = connection;
 
         const targetConnectorPos = getConnectorPosition(targetBlock, targetConnector);
         const draggedConnectorPos = getConnectorPosition(draggedBlock, draggedConnector);
-        this._log('connectBlocks()', {
-            target: targetBlock?.dataset?.instanceId,
-            targetType: targetBlock?.dataset?.type,
-            targetConnector,
-            dragged: draggedBlock?.dataset?.instanceId,
-            draggedType: draggedBlock?.dataset?.type,
-            draggedConnector
-        });
 
         if (!targetConnectorPos || !draggedConnectorPos) {
             draggedBlock.dataset.topLevel = 'true';
@@ -49,396 +489,30 @@ export default class ConnectionManager {
         }
 
         const targetTransform = getTranslateValues(targetBlock.getAttribute('transform'));
-        const draggedTransform = getTranslateValues(draggedBlock.getAttribute('transform'));
         const containingCBlock = this.findContainingCBlock(targetBlock);
 
         if (targetConnector === ConnectorType.INNER_TOP) {
-            this._log('case: INNER_TOP into c-block', { cBlock: targetBlock?.dataset?.instanceId });
-            if (!isCBlock(targetBlock)) {
-                console.warn('[DragAndDrop] INNER connector used on non c-block');
-                draggedBlock.dataset.topLevel = 'true';
-                return;
-            }
-
-            const insertPos = getInsertPosition(targetBlock, this.workspaceSVG);
-            insertBlockInside(targetBlock, draggedBlock, this.workspaceSVG, insertPos.x, insertPos.y, false);
+            this.handleInnerTopConnection(draggedBlock, targetBlock);
             return;
         }
 
         if (targetConnector === ConnectorType.TOP) {
-            this._log('case: TOP above target', { target: targetBlock?.dataset?.instanceId });
-            if (!canConnectFromTop(draggedBlock, targetBlock, this.workspaceSVG)) {
-                draggedBlock.dataset.topLevel = 'true';
-                return;
-            }
-
-            const draggedChain = getChainBlocks(draggedBlock, this.workspaceSVG);
-            // Сохраняем старые позиции до перекладки
-            const oldTransforms = new Map();
-            draggedChain.forEach(b => {
-                oldTransforms.set(b.dataset.instanceId, getTranslateValues(b.getAttribute('transform')));
-            });
-            const lastDraggedBlock = draggedChain[draggedChain.length - 1];
-
-            const draggedBlockRect = draggedBlock.getBoundingClientRect();
-            const offsetY = draggedConnectorPos.y - draggedBlockRect.top;
-
-            // ВАЖНО: вычисляем правильный X для первого блока в цепи с учетом вложенности
-            // Все блоки в цепи будут использовать этот же X (или X + смещение для вложенных)
-            const finalX = calculateChainBlockX(draggedBlock, draggedBlock, this.workspaceSVG);
-            const finalY = draggedConnectorPos.y - workspaceRect.top - offsetY;
-
-            // Позиционируем все блоки в цепи с правильным X
-            draggedBlock.setAttribute('transform', `translate(${finalX}, ${finalY})`);
-            if (draggedChain.length > 1) {
-                let currentY = finalY;
-                for (let i = 0; i < draggedChain.length; i++) {
-                    const block = draggedChain[i];
-                    if (i === 0) continue;
-
-                    const prevBlock = draggedChain[i - 1];
-                    const prevForm = BLOCK_FORMS[prevBlock.dataset.type] || {};
-                    const nextForm = BLOCK_FORMS[block.dataset.type] || {};
-                    const prevPathHeight = getBlockPathHeight(prevBlock);
-                    const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0) + (nextForm.topOffset || 0);
-                    currentY += joinDelta;
-
-                    // ВАЖНО: все блоки в цепи используют одинаковый X (вычисленный от первого блока)
-                    const blockX = calculateChainBlockX(draggedBlock, block, this.workspaceSVG);
-                    block.setAttribute('transform', `translate(${blockX}, ${currentY})`);
-                }
-            }
-            // Сдвигаем внутренности во всех c-block внутри перетаскиваемой цепи
-            // ВАЖНО: внутренние блоки должны сохранять правильный X относительно родительского c-block
-            const shiftInnerDraggedTop = (cBlock, dy) => {
-                if (!cBlock || !isCBlock(cBlock)) return;
-                const substackId = cBlock.dataset.substack;
-                if (!substackId) return;
-                const firstInner = this.workspaceSVG.querySelector(`[data-instance-id="${substackId}"]`);
-                const innerChain = getChainBlocks(firstInner, this.workspaceSVG);
-                const cBlockTransform = getTranslateValues(cBlock.getAttribute('transform'));
-                innerChain.forEach(inner => {
-                    const t = getTranslateValues(inner.getAttribute('transform'));
-                    // Вычисляем правильный X для внутреннего блока с учетом вложенности
-                    const nestedLevel = getNestedLevel(inner, this.workspaceSVG);
-                    const correctX = cBlockTransform.x + (nestedLevel * CBLOCK_NESTED_X_OFFSET);
-                    inner.setAttribute('transform', `translate(${correctX}, ${t.y + dy})`);
-                    if (isCBlock(inner)) {
-                        shiftInnerDraggedTop(inner, dy);
-                    }
-                });
-            };
-            draggedChain.forEach(block => {
-                if (!isCBlock(block)) return;
-                const oldT = oldTransforms.get(block.dataset.instanceId) || { x: 0, y: 0 };
-                const newT = getTranslateValues(block.getAttribute('transform'));
-                shiftInnerDraggedTop(block, newT.y - oldT.y);
-            });
-
-            // Точная стыковка по DOM-коннекторам (устраняет визуальные зазоры/перекрытия на 5px и т.п.)
-            const lastBottomPos = getConnectorPosition(lastDraggedBlock, ConnectorType.BOTTOM);
-            const targetTopPos = getConnectorPosition(targetBlock, ConnectorType.TOP);
-            // Экранные координаты и transform Y находятся в одном пространстве с одинаковой шкалой,
-            // поэтому разность по Y можно применять напрямую как смещение по transform.
-            const targetChain = getChainBlocks(targetBlock, this.workspaceSVG);
-            const deltaY = (lastBottomPos ? lastBottomPos.y : 0) - (targetTopPos ? targetTopPos.y : 0);
-            const deltaX = finalX - targetTransform.x;
-            
-            // Сдвигаем внешнюю цепь (выравниваем X до finalX, поднимаем/опускаем по Y)
-            // ВАЖНО: все блоки в цепи должны иметь одинаковый X (вычисленный от draggedBlock)
-            // finalX уже вычислен с учетом вложенности draggedBlock
-            targetChain.forEach(block => {
-                const blockTransform = getTranslateValues(block.getAttribute('transform'));
-                // Используем finalX для выравнивания всех блоков в targetChain
-                block.setAttribute('transform', `translate(${finalX}, ${blockTransform.y + deltaY})`);
-            });
-            // ВАЖНО: для каждого c-block в этой цепи нужно сдвинуть его внутренние блоки на deltaY,
-            // НО сохраняя их правильный X относительно родительского c-block (с учетом вложенности).
-            // Внутренние блоки НЕ должны выравниваться по finalX внешней цепи.
-            const shiftInnerRecursively = (cBlock) => {
-                if (!cBlock || !isCBlock(cBlock)) return;
-                const substackId = cBlock.dataset.substack;
-                if (!substackId) return;
-                const firstInner = this.workspaceSVG.querySelector(`[data-instance-id="${substackId}"]`);
-                const innerChain = getChainBlocks(firstInner, this.workspaceSVG);
-                const cBlockTransform = getTranslateValues(cBlock.getAttribute('transform'));
-                innerChain.forEach(inner => {
-                    const t = getTranslateValues(inner.getAttribute('transform'));
-                    // Вычисляем правильный X для внутреннего блока с учетом вложенности
-                    const nestedLevel = getNestedLevel(inner, this.workspaceSVG);
-                    const correctX = cBlockTransform.x + (nestedLevel * CBLOCK_NESTED_X_OFFSET);
-                    inner.setAttribute('transform', `translate(${correctX}, ${t.y + deltaY})`);
-                    if (isCBlock(inner)) {
-                        shiftInnerRecursively(inner);
-                    }
-                });
-            };
-            targetChain.forEach(block => {
-                if (isCBlock(block)) {
-                    shiftInnerRecursively(block);
-                }
-            });
-
-            targetBlock.dataset.parent = lastDraggedBlock.dataset.instanceId;
-            targetBlock.dataset.topConnected = 'true';
-            targetBlock.dataset.topLevel = 'false';
-            lastDraggedBlock.dataset.next = targetBlock.dataset.instanceId;
-            lastDraggedBlock.dataset.bottomConnected = 'true';
-            draggedBlock.dataset.topLevel = 'true';
-
-            if (containingCBlock) {
-                this._log('TOP: syncCBlockHeight for containingCBlock', containingCBlock?.dataset?.instanceId);
-                syncCBlockHeight(containingCBlock, this.workspaceSVG);
-            }
-            
-            // Выводим высоту новой цепи
-            const topLevelBlock = getTopLevelBlock(draggedBlock, this.workspaceSVG) || draggedBlock;
-            getChainHeight(topLevelBlock, this.workspaceSVG);
+            this.handleTopConnection(draggedBlock, targetBlock, targetConnectorPos, draggedConnectorPos, workspaceRect, targetTransform);
+            this.finalizeConnection(containingCBlock, getTopLevelBlock(draggedBlock, this.workspaceSVG) || draggedBlock);
             return;
         }
 
         if (targetConnector === ConnectorType.BOTTOM) {
-            this._log('case: BOTTOM below target', { target: targetBlock?.dataset?.instanceId });
-            if (!canConnectFromBottom(draggedBlock, targetBlock, this.workspaceSVG)) {
-                draggedBlock.dataset.topLevel = 'true';
-                return;
-            }
-
-            const draggedBlockRect = draggedBlock.getBoundingClientRect();
-            const offsetY = draggedConnectorPos.y - draggedBlockRect.top;
-
-            // ВАЖНО: вычисляем правильный X для первого блока в цепи с учетом вложенности
-            // Все блоки в цепи будут использовать этот же X (или X + смещение для вложенных)
-            const finalX = calculateChainBlockX(targetBlock, targetBlock, this.workspaceSVG);
-            const finalY = targetConnectorPos.y - workspaceRect.top - offsetY;
-
-            const draggedChain = getChainBlocks(draggedBlock, this.workspaceSVG);
-            const oldTransforms = new Map();
-            draggedChain.forEach(b => {
-                oldTransforms.set(b.dataset.instanceId, getTranslateValues(b.getAttribute('transform')));
-            });
-
-            // Позиционируем все блоки в цепи с правильным X
-            draggedBlock.setAttribute('transform', `translate(${finalX}, ${finalY})`);
-
-            if (draggedChain.length > 1) {
-                let currentY = finalY;
-                for (let i = 0; i < draggedChain.length; i++) {
-                    const block = draggedChain[i];
-                    if (i === 0) continue;
-
-                    const prevBlock = draggedChain[i - 1];
-                    const prevForm = BLOCK_FORMS[prevBlock.dataset.type] || {};
-                    const nextForm = BLOCK_FORMS[block.dataset.type] || {};
-                    const prevPathHeight = getBlockPathHeight(prevBlock);
-                    const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0) + (nextForm.topOffset || 0);
-                    currentY += joinDelta;
-
-                    // ВАЖНО: все блоки в цепи используют одинаковый X (вычисленный от первого блока)
-                    const blockX = calculateChainBlockX(targetBlock, block, this.workspaceSVG);
-                    block.setAttribute('transform', `translate(${blockX}, ${currentY})`);
-                }
-            }
-            // Сдвиг внутренностей c-block в перетаскиваемой цепи
-            // ВАЖНО: внутренние блоки должны сохранять правильный X относительно родительского c-block
-            const shiftInnerDraggedBottom = (cBlock, dy) => {
-                if (!cBlock || !isCBlock(cBlock)) return;
-                const substackId = cBlock.dataset.substack;
-                if (!substackId) return;
-                const firstInner = this.workspaceSVG.querySelector(`[data-instance-id="${substackId}"]`);
-                const innerChain = getChainBlocks(firstInner, this.workspaceSVG);
-                const cBlockTransform = getTranslateValues(cBlock.getAttribute('transform'));
-                innerChain.forEach(inner => {
-                    const t = getTranslateValues(inner.getAttribute('transform'));
-                    // Вычисляем правильный X для внутреннего блока с учетом вложенности
-                    const nestedLevel = getNestedLevel(inner, this.workspaceSVG);
-                    const correctX = cBlockTransform.x + (nestedLevel * CBLOCK_NESTED_X_OFFSET);
-                    inner.setAttribute('transform', `translate(${correctX}, ${t.y + dy})`);
-                    if (isCBlock(inner)) {
-                        shiftInnerDraggedBottom(inner, dy);
-                    }
-                });
-            };
-            draggedChain.forEach(block => {
-                if (!isCBlock(block)) return;
-                const oldT = oldTransforms.get(block.dataset.instanceId) || { x: 0, y: 0 };
-                const newT = getTranslateValues(block.getAttribute('transform'));
-                shiftInnerDraggedBottom(block, newT.y - oldT.y);
-            });
-
-            draggedBlock.dataset.parent = targetBlock.dataset.instanceId;
-            targetBlock.dataset.next = draggedBlock.dataset.instanceId;
-
-            draggedBlock.dataset.topConnected = 'true';
-            targetBlock.dataset.bottomConnected = 'true';
-            draggedBlock.dataset.topLevel = 'false';
-
-            if (containingCBlock) {
-                this._log('BOTTOM: syncCBlockHeight for containingCBlock', containingCBlock?.dataset?.instanceId);
-                syncCBlockHeight(containingCBlock, this.workspaceSVG);
-            }
-            
-            // Выводим высоту новой цепи
-            const topLevelBlock = getTopLevelBlock(targetBlock, this.workspaceSVG) || targetBlock;
-            getChainHeight(topLevelBlock, this.workspaceSVG);
+            this.handleBottomConnection(draggedBlock, targetBlock, targetConnectorPos, draggedConnectorPos, workspaceRect);
+            this.finalizeConnection(containingCBlock, getTopLevelBlock(targetBlock, this.workspaceSVG) || targetBlock);
             return;
         }
 
         if (targetConnector === ConnectorType.MIDDLE) {
-            this._log('case: MIDDLE between target and its next', { target: targetBlock?.dataset?.instanceId, next: targetBlock?.dataset?.next });
             const lowerBlockId = targetBlock.dataset.next;
             const lowerBlock = this.workspaceSVG.querySelector(`[data-instance-id="${lowerBlockId}"]`);
-
-            // Для c-block нужно использовать оригинальную высоту для расчета позиции вставки
-            // Если c-block был растянут ghost resize, его dataset.height увеличен, но блоки уже смещены
-            // Поэтому используем базовую высоту + реальную innerHeight (без ghost resize)
-            let targetPathHeight = getBlockPathHeight(targetBlock);
-            if (isCBlock(targetBlock)) {
-               targetPathHeight = targetPathHeight-10;
-            }
-            this._log('MIDDLE: targetPathHeight', targetPathHeight);
-            // ВАЖНО: вычисляем правильный X для первого блока в цепи с учетом вложенности
-            // Все блоки в цепи будут использовать этот же X (или X + смещение для вложенных)
-            const finalX = calculateChainBlockX(targetBlock, targetBlock, this.workspaceSVG);
-            // Правильная формула для MIDDLE: позиция целевого блока + его высота - его bottomOffset + topOffset перетаскиваемого
-            const targetType = targetBlock.dataset.type;
-            const targetForm = BLOCK_FORMS[targetType];
-            const targetBottomOffset = targetForm?.bottomOffset || 0;
-            const draggedType = draggedBlock.dataset.type;
-            const draggedForm = BLOCK_FORMS[draggedType];
-            const draggedTopOffset = draggedForm?.topOffset || 0;
-            const finalY = targetTransform.y + targetPathHeight - targetBottomOffset + draggedTopOffset;
-
-            const draggedChain = getChainBlocks(draggedBlock, this.workspaceSVG);
-            const oldTransforms = new Map();
-            draggedChain.forEach(b => {
-                oldTransforms.set(b.dataset.instanceId, getTranslateValues(b.getAttribute('transform')));
-            });
-
-            // Позиционируем все блоки в цепи с правильным X
-            draggedBlock.setAttribute('transform', `translate(${finalX}, ${finalY})`);
-
-            const isSpecialBlock = handleSpecialBlockInsertion(draggedBlock, targetBlock, lowerBlock, this.workspaceSVG);
-            const specialChainHandled = handleMiddleInsertionWithSpecialBlocks(draggedBlock, targetBlock, lowerBlock, this.workspaceSVG);
-
-            if (!isSpecialBlock && !specialChainHandled && lowerBlock) {
-                const insertChain = draggedChain;
-                const insertChainBottom = insertChain[insertChain.length - 1];
-
-                // Рассчитываем правильную высоту вставляемой цепи с учетом отступов между блоками
-                let totalInsertHeight = 0;
-                for (let i = 0; i < insertChain.length; i++) {
-                    const block = insertChain[i];
-                    const blockPathHeight = getBlockPathHeight(block);
-                    if (i === 0) {
-                        // Для первого блока учитываем его полную высоту
-                        totalInsertHeight += blockPathHeight;
-                    } else {
-                        // Для последующих блоков используем joinDelta
-                        const prevBlock = insertChain[i - 1];
-                        const prevForm = BLOCK_FORMS[prevBlock.dataset.type] || {};
-                        const nextForm = BLOCK_FORMS[block.dataset.type] || {};
-                        const prevPathHeight = getBlockPathHeight(prevBlock);
-                        const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0) + (nextForm.topOffset || 0);
-                        totalInsertHeight += joinDelta;
-                    }
-                }
-                this._log('MIDDLE: totalInsertHeight', totalInsertHeight, 'lowerBlock', lowerBlock?.dataset?.instanceId);
-
-                let currentY = finalY;
-                for (let i = 0; i < insertChain.length; i++) {
-                    const block = insertChain[i];
-                    if (i === 0) continue;
-
-                    const prevBlock = insertChain[i - 1];
-                    const prevForm = BLOCK_FORMS[prevBlock.dataset.type] || {};
-                    const nextForm = BLOCK_FORMS[block.dataset.type] || {};
-                    const prevPathHeight = getBlockPathHeight(prevBlock);
-                    const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0) + (nextForm.topOffset || 0);
-                    currentY += joinDelta;
-
-                    // ВАЖНО: все блоки в цепи используют одинаковый X (вычисленный от первого блока)
-                    const blockX = calculateChainBlockX(targetBlock, block, this.workspaceSVG);
-                    block.setAttribute('transform', `translate(${blockX}, ${currentY})`);
-                }
-
-                const lowerTransform = getTranslateValues(lowerBlock.getAttribute('transform'));
-                // Вычисляем позицию нижнего коннектора последнего блока вставляемой цепи
-                // Если вставляется только один блок, currentY = finalY (позиция верхнего края)
-                // Если несколько блоков, currentY = позиция верхнего края последнего блока
-                const lastInsertedPathHeight = getBlockPathHeight(insertChainBottom);
-                const lastInsertedForm = BLOCK_FORMS[insertChainBottom.dataset.type] || {};
-                const lastInsertedBottomOffset = lastInsertedForm.bottomOffset || 0;
-                // Позиция нижнего коннектора = позиция верхнего края + высота блока - bottomOffset
-                const lowerFinalY = (insertChain.length === 1 ? finalY : currentY) + lastInsertedPathHeight - lastInsertedBottomOffset;
-
-                const lowerChain = getChainBlocks(lowerBlock, this.workspaceSVG);
-                const deltaY = lowerFinalY - lowerTransform.y;
-                console.log('deltaY', deltaY);
-                // ВАЖНО: все блоки в lowerChain должны иметь одинаковый X (вычисленный от первого блока)
-                lowerChain.forEach(block => {
-                    const blockTransform = getTranslateValues(block.getAttribute('transform'));
-                    const blockX = calculateChainBlockX(lowerChain[0], block, this.workspaceSVG);
-                    block.setAttribute('transform', `translate(${blockX}, ${blockTransform.y + deltaY})`);
-                });
-
-                targetBlock.dataset.next = draggedBlock.dataset.instanceId;
-                targetBlock.dataset.bottomConnected = 'true';
-
-                draggedBlock.dataset.parent = targetBlock.dataset.instanceId;
-                draggedBlock.dataset.topConnected = 'true';
-                draggedBlock.dataset.topLevel = 'false';
-
-                insertChainBottom.dataset.next = lowerBlock.dataset.instanceId;
-                insertChainBottom.dataset.bottomConnected = 'true';
-
-                lowerBlock.dataset.parent = insertChainBottom.dataset.instanceId;
-                lowerBlock.dataset.topConnected = 'true';
-            } else if (!isSpecialBlock && !lowerBlock) {
-                this._log('MIDDLE: no lowerBlock, connect tail-to-null');
-                draggedBlock.dataset.parent = targetBlock.dataset.instanceId;
-                draggedBlock.dataset.topConnected = 'true';
-                draggedBlock.dataset.topLevel = 'false';
-
-                targetBlock.dataset.next = draggedBlock.dataset.instanceId;
-                targetBlock.dataset.bottomConnected = 'true';
-            }
-
-            // Сдвигаем внутренности в перетаскиваемой цепи
-            // ВАЖНО: внутренние блоки должны сохранять правильный X относительно родительского c-block
-            const shiftInnerDraggedMiddle = (cBlock, dy) => {
-                if (!cBlock || !isCBlock(cBlock)) return;
-                const substackId = cBlock.dataset.substack;
-                if (!substackId) return;
-                const firstInner = this.workspaceSVG.querySelector(`[data-instance-id="${substackId}"]`);
-                const innerChain = getChainBlocks(firstInner, this.workspaceSVG);
-                const cBlockTransform = getTranslateValues(cBlock.getAttribute('transform'));
-                innerChain.forEach(inner => {
-                    const t = getTranslateValues(inner.getAttribute('transform'));
-                    // Вычисляем правильный X для внутреннего блока с учетом вложенности
-                    const nestedLevel = getNestedLevel(inner, this.workspaceSVG);
-                    const correctX = cBlockTransform.x + (nestedLevel * CBLOCK_NESTED_X_OFFSET);
-                    inner.setAttribute('transform', `translate(${correctX}, ${t.y + dy})`);
-                    if (isCBlock(inner)) {
-                        shiftInnerDraggedMiddle(inner, dy);
-                    }
-                });
-            };
-            draggedChain.forEach(block => {
-                if (!isCBlock(block)) return;
-                const oldT = oldTransforms.get(block.dataset.instanceId) || { x: 0, y: 0 };
-                const newT = getTranslateValues(block.getAttribute('transform'));
-                shiftInnerDraggedMiddle(block, newT.y - oldT.y);
-            });
-
-            if (containingCBlock) {
-                this._log('MIDDLE: syncCBlockHeight for containingCBlock', containingCBlock?.dataset?.instanceId);
-                syncCBlockHeight(containingCBlock, this.workspaceSVG);
-            }
-            
-            // Выводим высоту новой цепи
-            const topLevelBlock = getTopLevelBlock(targetBlock, this.workspaceSVG) || targetBlock;
-            getChainHeight(topLevelBlock, this.workspaceSVG);
+            this.handleMiddleConnection(draggedBlock, targetBlock, targetTransform, lowerBlock);
+            this.finalizeConnection(containingCBlock, getTopLevelBlock(targetBlock, this.workspaceSVG) || targetBlock);
         }
     }
 }

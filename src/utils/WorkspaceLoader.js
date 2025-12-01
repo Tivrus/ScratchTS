@@ -1,10 +1,24 @@
-import { createWorkspaceBlock } from '../blocks/BlockFactory.js';
-import { getChainBlocks } from '../blocks/BlockChain.js';
-import { insertBlockInside, getInsertPosition, isCBlock } from '../blocks/CBlock.js';
-import { getTranslateValues, setTranslate } from './DOMUtils.js';
-import { BLOCK_FORMS, DEFAULT_BLOCK_HEIGHT } from './Constants.js';
-import { blocks } from '../data/BlocksData.js';
-import { categories } from '../data/CategoriesData.js';
+
+import { 
+    getInsertPosition, 
+    isCBlock 
+} from '../blocks/CBlock.js';
+
+import { 
+    getTranslateValues, 
+    setTranslate 
+} from './DOMUtils.js';
+
+import { 
+    BLOCK_FORMS, 
+    DEFAULT_BLOCK_HEIGHT 
+} from './Constants.js';
+
+import {createWorkspaceBlock} from '../blocks/BlockFactory.js';
+import {getChainBlocks} from '../blocks/BlockChain.js';
+import {blocks} from '../data/BlocksData.js';
+import {categories} from '../data/CategoriesData.js';
+
 
 function findBlockConfig(opcode) {
     return blocks.find(block => block.id === opcode) || null;
@@ -57,9 +71,9 @@ function restoreConnections(blocksData, blockMap, workspaceSVG) {
                 // Позиционируем следующий блок
                 const blockForm = BLOCK_FORMS[block.dataset.type] || {};
                 const nextForm = BLOCK_FORMS[nextBlock.dataset.type] || {};
-                const blockPathHeight = parseFloat(block.dataset.height) || blockForm.pathHeight || DEFAULT_BLOCK_HEIGHT;
+                const blockPathHeight = parseFloat(block.dataset.height) || blockForm.height || DEFAULT_BLOCK_HEIGHT;
                 const blockTransform = getTranslateValues(block.getAttribute('transform'));
-                const joinDelta = blockPathHeight - (blockForm.bottomOffset || 0) + (nextForm.topOffset || 0);
+                const joinDelta = blockPathHeight - (blockForm.bottomOffset || 0);
                 const nextY = blockTransform.y + joinDelta;
                 setTranslate(nextBlock, blockTransform.x, nextY);
             }
@@ -97,8 +111,8 @@ function restoreConnections(blocksData, blockMap, workspaceSVG) {
                     const prevBlock = chain[i - 1];
                     const prevForm = BLOCK_FORMS[prevBlock.dataset.type] || {};
                     const nextForm = BLOCK_FORMS[chainBlock.dataset.type] || {};
-                    const prevPathHeight = parseFloat(prevBlock.dataset.height) || prevForm.pathHeight || DEFAULT_BLOCK_HEIGHT;
-                    const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0) + (nextForm.topOffset || 0);
+                    const prevPathHeight = parseFloat(prevBlock.dataset.height) || prevForm.height || DEFAULT_BLOCK_HEIGHT;
+                    const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0);
                     currentY += joinDelta;
                     setTranslate(chainBlock, insertPos.x, currentY);
                 }

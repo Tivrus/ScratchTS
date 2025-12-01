@@ -1,7 +1,12 @@
-import { getChainBlocks } from '../../blocks/BlockChain.js';
-import { getBlockPathHeight, getTranslateValues } from './DragHelpers.js';
+import { 
+    getBlockPathHeight, 
+    getTranslateValues 
+} from './DragHelpers.js';
 
-export default class ChainSplitManager {
+import {getChainBlocks} from '../../blocks/BlockChain.js';
+
+
+export class ChainSplitManager {
     constructor(workspaceSVG, dragOverlaySVG) {
         this.workspaceSVG = workspaceSVG;
         this.dragOverlaySVG = dragOverlaySVG;

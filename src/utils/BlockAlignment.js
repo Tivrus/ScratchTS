@@ -1,6 +1,7 @@
 
-import { getChainBlocks } from '../blocks/BlockChain.js';
-import { getTranslateValues } from './DOMUtils.js';
+import {getChainBlocks} from '../blocks/BlockChain.js';
+import {getTranslateValues} from './DOMUtils.js';
+
 
 function snapToGrid(value, gridSize = 10) {
     return Math.round(value / gridSize) * gridSize;
@@ -118,5 +119,4 @@ export function initBlockAlignment(workspaceSVG) {
     }
 }
 
-export default alignAllBlocks;
 

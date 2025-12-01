@@ -1,6 +1,18 @@
-import { isCBlock, getInnerBlocks, exportCBlockToJSON, hasInnerBlocks } from './CBlock.js';
-import { getTranslateValues } from '../utils/DOMUtils.js';
-import { BLOCK_FORMS, DEFAULT_BLOCK_HEIGHT } from '../utils/Constants.js';
+import { 
+    isCBlock, 
+    getInnerBlocks, 
+    exportCBlockToJSON, 
+    hasInnerBlocks 
+} from './CBlock.js';
+
+import { 
+    BLOCK_FORMS, 
+    DEFAULT_BLOCK_HEIGHT 
+} from '../utils/Constants.js';
+
+import {getTranslateValues} from '../utils/DOMUtils.js';
+
+
 
 export function getChainBlocks(startBlock, workspaceSVG) {
     if (!startBlock) return [];
@@ -73,7 +85,7 @@ export function isTopLevelBlock(block) {
 }
 
 /**
- * Получает pathHeight блока с учетом его типа
+ * Получает height блока с учетом его типа
  */
 function getBlockPathHeight(block) {
  
@@ -82,16 +94,16 @@ function getBlockPathHeight(block) {
     
     // Для c-block приоритет у dataset.height (может быть растянут)
     if (blockType === 'c-block') {
-        return parseFloat(block.dataset.height) || blockForm?.pathHeight || DEFAULT_BLOCK_HEIGHT;
+        return parseFloat(block.dataset.height) || blockForm?.height || DEFAULT_BLOCK_HEIGHT;
     }
     
-    // Для остальных блоков приоритет у pathHeight из формы
-    return blockForm?.pathHeight || parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT;
+    // Для остальных блоков приоритет у height из формы
+    return blockForm?.height || parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT;
 }
 
 /**
  * Правильно рассчитывает высоту цепи блоков
- * Учитывает коннекторные стыки между блоками (topOffset, bottomOffset)
+ * Учитывает коннекторные стыки между блоками (bottomOffset)
  * 
  * @param {HTMLElement} startBlock - Первый блок в цепи
  * @param {HTMLElement} workspaceSVG - SVG контейнер рабочей области
@@ -116,7 +128,7 @@ export function getChainHeight(startBlock, workspaceSVG) {
             totalHeight += pathHeight;
         } else {
             // Последующие блоки: pathHeight уже учитывает перекрытие коннекторов
-            // bottomOffset и topOffset уже включены в pathHeight каждого блока
+            // bottomOffset уже включен в pathHeight каждого блока
             // Поэтому просто суммируем pathHeight всех блоков
             totalHeight += pathHeight;
         }

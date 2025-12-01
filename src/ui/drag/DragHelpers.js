@@ -1,5 +1,13 @@
-import { BLOCK_FORMS, DEFAULT_BLOCK_HEIGHT } from '../../utils/Constants.js';
-import { getTranslateValues } from '../../utils/DOMUtils.js';
+import { 
+    BLOCK_FORMS, 
+    DEFAULT_BLOCK_HEIGHT 
+} from '../../utils/Constants.js';
+
+import { 
+    getTranslateValues, 
+    getBoundingClientRectRounded 
+} from '../../utils/DOMUtils.js';
+
 
 export { getTranslateValues };
 
@@ -13,20 +21,20 @@ export function getColorFromTemplate(template) {
 }
 
 export function isPointerInsideWorkspace(workspace, event) {
-    const rect = workspace.getBoundingClientRect();
+    const rect = getBoundingClientRectRounded(workspace);
     return event.clientX >= rect.left && event.clientX <= rect.right &&
         event.clientY >= rect.top && event.clientY <= rect.bottom;
 }
 
 export function isPointerInsideSidebar(sidebar, event) {
-    const rect = sidebar.getBoundingClientRect();
+    const rect = getBoundingClientRectRounded(sidebar);
     return event.clientX >= rect.left && event.clientX <= rect.right &&
         event.clientY >= rect.top && event.clientY <= rect.bottom;
 }
 
 export function isBlockInsideSidebar(element, sidebar) {
-    const blockRect = element.getBoundingClientRect();
-    const sidebarRect = sidebar.getBoundingClientRect();
+    const blockRect = getBoundingClientRectRounded(element);
+    const sidebarRect = getBoundingClientRectRounded(sidebar);
 
     const blockCenterX = blockRect.left + blockRect.width / 2;
     const blockCenterY = blockRect.top + blockRect.height / 2;
@@ -36,7 +44,7 @@ export function isBlockInsideSidebar(element, sidebar) {
 }
 
 export function isPointerInsideTrash(trashCan, event) {
-    const rect = trashCan.getBoundingClientRect();
+    const rect = getBoundingClientRectRounded(trashCan);
     return event.clientX >= rect.left && event.clientX <= rect.right &&
         event.clientY >= rect.top && event.clientY <= rect.bottom;
 }
@@ -46,9 +54,9 @@ export function getBlockPathHeight(block) {
     const blockForm = BLOCK_FORMS[blockType];
 
     if (blockType === 'c-block') {
-        return parseFloat(block.dataset.height) || blockForm?.pathHeight || DEFAULT_BLOCK_HEIGHT;
+        return parseFloat(block.dataset.height) || blockForm?.height || DEFAULT_BLOCK_HEIGHT;
     }
 
-    return blockForm?.pathHeight || parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT;
+    return blockForm?.height || parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT;
 }
 

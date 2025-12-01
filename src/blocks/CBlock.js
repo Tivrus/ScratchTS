@@ -1,8 +1,17 @@
-import { getChainBlocks, getAllChainBlocks } from './BlockChain.js';
-import { BLOCK_FORMS, DEFAULT_BLOCK_HEIGHT, CBLOCK_NESTED_X_OFFSET, SVG_NS } from '../utils/Constants.js';
-import PathUtils from '../utils/PathUtils.js';
-import { getTranslateValues } from '../utils/DOMUtils.js';
-export const C_BLOCK_EMPTY_INNER_SPACE = 24; // Базовое «пустое» пространство внутри c-block
+import { 
+    BLOCK_FORMS, 
+    DEFAULT_BLOCK_HEIGHT, 
+    CBLOCK_NESTED_X_OFFSET
+} from '../utils/Constants.js';
+
+import { 
+    getChainBlocks, 
+    getAllChainBlocks 
+} from './BlockChain.js';
+
+import {PathUtils} from '../utils/PathUtils.js';
+import {getTranslateValues} from '../utils/DOMUtils.js';
+
 
 export function isCBlock(block) {
     return block && block.dataset.type === 'c-block';
@@ -74,29 +83,26 @@ export function getInnerHeight(cBlock, workspaceSVG) {
     
     // Точный расчет высоты: первая высота целиком, далее учитываем коннекторные стыки
     // ВАЖНО: 
-    // 1. topOffset первого блока не должен учитываться (блок начинается с позиции innerOffsetY)
-    // 2. bottomOffset последнего блока не должен учитываться (уже учтен в базовой высоте c-block)
+    // bottomOffset последнего блока не должен учитываться (уже учтен в базовой высоте c-block)
     let totalHeight = 0;
     for (let i = 0; i < innerBlocks.length; i++) {
         const block = innerBlocks[i];
         const type = block.dataset.type;
         const form = BLOCK_FORMS[type] || {};
         const pathHeight = type === 'c-block'
-            ? (parseFloat(block.dataset.height) || form?.pathHeight || DEFAULT_BLOCK_HEIGHT)
-            : (form?.pathHeight || parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT);
+            ? (parseFloat(block.dataset.height) || form?.height || DEFAULT_BLOCK_HEIGHT)
+            : (form?.height || parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT);
         
         if (i === 0) {
-            // Для первого блока вычитаем topOffset, так как блок начинается с позиции innerOffsetY
-            const firstTopOffset = form.topOffset || 0;
-            totalHeight += pathHeight - firstTopOffset;
+            totalHeight += pathHeight;
         } else {
             const prev = innerBlocks[i - 1];
             const prevType = prev.dataset.type;
             const prevForm = BLOCK_FORMS[prevType] || {};
             const prevPathHeight = prevType === 'c-block'
-                ? (parseFloat(prev.dataset.height) || prevForm?.pathHeight || DEFAULT_BLOCK_HEIGHT)
-                : (prevForm?.pathHeight || parseFloat(prev.dataset.height) || DEFAULT_BLOCK_HEIGHT);
-            const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0) + (form.topOffset || 0);
+                ? (parseFloat(prev.dataset.height) || prevForm?.height || DEFAULT_BLOCK_HEIGHT)
+                : (prevForm?.height || parseFloat(prev.dataset.height) || DEFAULT_BLOCK_HEIGHT);
+            const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0);
             totalHeight += joinDelta;
         }
     }
@@ -288,15 +294,15 @@ export function insertBlockInside(cBlock, insertBlock, workspaceSVG, x, y, atBot
         const block = insertChain[i];
         const type = block.dataset.type;
         const form = BLOCK_FORMS[type] || {};
-        const pathHeight = form?.pathHeight || parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT;
+        const pathHeight = form?.height || parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT;
         if (i === 0) {
             insertChainHeight += pathHeight;
         } else {
             const prev = insertChain[i - 1];
             const prevType = prev.dataset.type;
             const prevForm = BLOCK_FORMS[prevType] || {};
-            const prevPathHeight = prevForm?.pathHeight || parseFloat(prev.dataset.height) || DEFAULT_BLOCK_HEIGHT;
-            const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0) + (form.topOffset || 0);
+            const prevPathHeight = prevForm?.height || parseFloat(prev.dataset.height) || DEFAULT_BLOCK_HEIGHT;
+            const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0);
             insertChainHeight += joinDelta;
         }
     }
@@ -309,11 +315,11 @@ export function insertBlockInside(cBlock, insertBlock, workspaceSVG, x, y, atBot
             const lastTransform = getTranslateValues(lastInnerBlock.getAttribute('transform'));
             const lastBlockType = lastInnerBlock.dataset.type;
             const lastBlockForm = BLOCK_FORMS[lastBlockType];
-            const lastBlockHeight = lastBlockForm?.pathHeight || parseFloat(lastInnerBlock.dataset.height) || DEFAULT_BLOCK_HEIGHT;
+            const lastBlockHeight = lastBlockForm?.height || parseFloat(lastInnerBlock.dataset.height) || DEFAULT_BLOCK_HEIGHT;
             const nextForm = BLOCK_FORMS[insertBlock.dataset.type] || {};
             
             // Позиция для нового блока
-            const insertY = lastTransform.y + (lastBlockHeight - (lastBlockForm.bottomOffset || 0) + (nextForm.topOffset || 0));
+            const insertY = lastTransform.y + (lastBlockHeight - (lastBlockForm.bottomOffset || 0));
             
             // Позиционируем вставляемую цепь
             // ВАЖНО: все блоки в цепи должны иметь одинаковый X (вычисленный от первого блока)
@@ -324,9 +330,9 @@ export function insertBlockInside(cBlock, insertBlock, workspaceSVG, x, y, atBot
                 const prevBlock = insertChain[i - 1];
                 const prevBlockType = prevBlock.dataset.type;
                 const prevBlockForm = BLOCK_FORMS[prevBlockType];
-                const prevBlockHeight = prevBlockForm?.pathHeight || parseFloat(prevBlock.dataset.height) || DEFAULT_BLOCK_HEIGHT;
+                const prevBlockHeight = prevBlockForm?.height || parseFloat(prevBlock.dataset.height) || DEFAULT_BLOCK_HEIGHT;
                 const nextForm2 = BLOCK_FORMS[block.dataset.type] || {};
-                const joinDelta = prevBlockHeight - (prevBlockForm.bottomOffset || 0) + (nextForm2.topOffset || 0);
+                const joinDelta = prevBlockHeight - (prevBlockForm.bottomOffset || 0);
                 currentY += joinDelta;
                 // ВАЖНО: все блоки в цепи используют одинаковый X (вычисленный от первого блока)
                 const blockX = calculateChainBlockX(insertBlock, block, workspaceSVG);
@@ -353,9 +359,9 @@ export function insertBlockInside(cBlock, insertBlock, workspaceSVG, x, y, atBot
                 const prevBlock = insertChain[i - 1];
                 const prevBlockType = prevBlock.dataset.type;
                 const prevBlockForm = BLOCK_FORMS[prevBlockType];
-                const prevBlockHeight = prevBlockForm?.pathHeight || parseFloat(prevBlock.dataset.height) || DEFAULT_BLOCK_HEIGHT;
+                const prevBlockHeight = prevBlockForm?.height || parseFloat(prevBlock.dataset.height) || DEFAULT_BLOCK_HEIGHT;
                 const nextForm = BLOCK_FORMS[block.dataset.type] || {};
-                const joinDelta = prevBlockHeight - (prevBlockForm.bottomOffset || 0) + (nextForm.topOffset || 0);
+                const joinDelta = prevBlockHeight - (prevBlockForm.bottomOffset || 0);
                 currentY += joinDelta;
                 // ВАЖНО: все блоки в цепи используют одинаковый X (вычисленный от первого блока)
                 const blockX = calculateChainBlockX(insertBlock, block, workspaceSVG);
@@ -396,9 +402,9 @@ export function insertBlockInside(cBlock, insertBlock, workspaceSVG, x, y, atBot
             const prevBlock = insertChain[i - 1];
             const prevBlockType = prevBlock.dataset.type;
             const prevBlockForm = BLOCK_FORMS[prevBlockType];
-            const prevBlockHeight = prevBlockForm?.pathHeight || parseFloat(prevBlock.dataset.height) || DEFAULT_BLOCK_HEIGHT;
+            const prevBlockHeight = prevBlockForm?.height || parseFloat(prevBlock.dataset.height) || DEFAULT_BLOCK_HEIGHT;
             const nextForm = BLOCK_FORMS[block.dataset.type] || {};
-            const joinDelta = prevBlockHeight - (prevBlockForm.bottomOffset || 0) + (nextForm.topOffset || 0);
+            const joinDelta = prevBlockHeight - (prevBlockForm.bottomOffset || 0);
             currentY += joinDelta;
             // ВАЖНО: все блоки в цепи используют одинаковый X (вычисленный от первого блока)
             const blockX = calculateChainBlockX(insertBlock, block, workspaceSVG);
@@ -445,7 +451,7 @@ export function removeBlockFromInside(cBlock, removeBlock, workspaceSVG) {
     removeChain.forEach(block => {
         const blockType = block.dataset.type;
         const blockForm = BLOCK_FORMS[blockType];
-        const pathHeight = blockForm?.pathHeight || parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT;
+        const pathHeight = blockForm?.height || parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT;
         removeChainHeight += pathHeight;
     });
     

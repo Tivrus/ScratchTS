@@ -1,20 +1,38 @@
-import { createWorkspaceBlock } from '../../blocks/BlockFactory.js';
-import { getTopLevelBlock, breakChain } from '../../blocks/BlockChain.js';
-import { removeBlockFromInside, isBlockInsideCBlock, isCBlock, syncAllCBlockHeights, getCBlockState } from '../../blocks/CBlock.js';
-import { saveWorkspaceState, initWorkspaceState } from '../../utils/WorkspaceState.js';
-import { initBlockAlignment } from '../../utils/BlockAlignment.js';
-import { initDebugMode } from '../../blocks/BlockConnectors.js';
-import GhostBlock from '../GhostBlock.js';
-import ChainSplitManager from './ChainSplitManager.js';
-import ConnectionManager from './ConnectionManager.js';
-import DragSession from './DragSession.js';
-import DragAnimator from './DragAnimator.js';
-import {
-    getColorFromTemplate,
-    getTranslateValues
+import { 
+    removeBlockFromInside, 
+    isBlockInsideCBlock, 
+    isCBlock, 
+    syncAllCBlockHeights, 
+    getCBlockState 
+} from '../../blocks/CBlock.js';
+
+import { 
+    getTopLevelBlock, 
+    breakChain 
+} from '../../blocks/BlockChain.js';
+
+import { 
+    saveWorkspaceState, 
+    initWorkspaceState 
+} from '../../utils/WorkspaceState.js';
+
+import { 
+    getColorFromTemplate, 
+    getTranslateValues 
 } from './DragHelpers.js';
 
-export default class DragAndDropController {
+import {initBlockAlignment} from '../../utils/BlockAlignment.js';
+import {initDebugMode} from '../../blocks/BlockConnectors.js';
+import {GhostBlock} from '../GhostBlock.js';
+import {createWorkspaceBlock} from '../../blocks/BlockFactory.js';
+import {ChainSplitManager} from './ChainSplitManager.js';
+import {ConnectionManager} from './ConnectionManager.js';
+import {DragSession} from './DragSession.js';
+import {DragAnimator} from './DragAnimator.js';
+import {getBoundingClientRectRounded} from '../../utils/DOMUtils.js';
+
+
+export class DragAndDropController {
     constructor({
         workspaceSelector,
         blockTemplatesSelector,
@@ -132,8 +150,8 @@ export default class DragAndDropController {
             return;
         }
 
-        const templateRect = template.getBoundingClientRect();
-        const overlayRect = this.dragOverlaySVG.getBoundingClientRect();
+        const templateRect = getBoundingClientRectRounded(template);
+        const overlayRect = getBoundingClientRectRounded(this.dragOverlaySVG);
 
         const color = getColorFromTemplate(template);
 
@@ -168,7 +186,7 @@ export default class DragAndDropController {
         event.preventDefault();
         event.stopPropagation();
 
-        const blockRect = block.getBoundingClientRect();
+        const blockRect = getBoundingClientRectRounded(block);
         const offsetX = event.clientX - blockRect.left;
         const offsetY = event.clientY - blockRect.top;
 

@@ -1,5 +1,11 @@
-import { BLOCK_FORMS, DEFAULT_BLOCK_COLOR, SVG_NS } from '../utils/Constants.js';
-import PathUtils from '../utils/PathUtils.js';
+import { 
+    BLOCK_FORMS, 
+    DEFAULT_BLOCK_COLOR, 
+    SVG_NS 
+} from '../utils/Constants.js';
+
+import {PathUtils} from '../utils/PathUtils.js';
+
 
 function createSVGElement(tag) {
     return document.createElementNS(SVG_NS, tag);

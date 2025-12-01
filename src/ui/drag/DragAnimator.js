@@ -1,14 +1,17 @@
-export default class DragAnimator {
+import {getBoundingClientRectRounded} from '../../utils/DOMUtils.js';
+
+
+export class DragAnimator {
     constructor(dragOverlaySVG) {
         this.dragOverlaySVG = dragOverlaySVG;
     }
 
     shrinkBlock(element, callback) {
-        const blockRect = element.getBoundingClientRect();
+        const blockRect = getBoundingClientRectRounded(element);
         const blockCenterX = blockRect.left + blockRect.width / 2;
         const blockCenterY = blockRect.top + blockRect.height / 2;
 
-        const overlayRect = this.dragOverlaySVG.getBoundingClientRect();
+        const overlayRect = getBoundingClientRectRounded(this.dragOverlaySVG);
         const relativeCenterX = blockCenterX - overlayRect.left;
         const relativeCenterY = blockCenterY - overlayRect.top;
 
