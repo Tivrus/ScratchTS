@@ -110,7 +110,7 @@ export class ConnectionManager {
                 const prevForm = BLOCK_FORMS[prevBlock.dataset.type] || {};
                 const nextForm = BLOCK_FORMS[block.dataset.type] || {};
                 const prevPathHeight = getBlockPathHeight(prevBlock);
-                const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0);
+                const joinDelta = prevPathHeight - CONNECTOR_SOCKET_HEIGHT;
                 currentY += joinDelta;
 
                 const blockX = calculateChainBlockX(firstBlock, block, this.workspaceSVG);
@@ -236,20 +236,6 @@ export class ConnectionManager {
      * @param {Object} targetTransform - Transform целевого блока
      */
     handleTopConnection(draggedBlock, targetBlock, targetConnectorPos, draggedConnectorPos, workspaceRect, targetTransform) {
-        console.log('=== TOP CONNECTOR DEBUG ===');
-        console.log('targetConnector:', ConnectorType.TOP);
-        console.log('draggedConnector:', draggedConnectorPos);
-        console.log('targetBlock:', {
-            id: targetBlock?.dataset?.instanceId,
-            type: targetBlock?.dataset?.type
-        });
-        console.log('draggedBlock:', {
-            id: draggedBlock?.dataset?.instanceId,
-            type: draggedBlock?.dataset?.type
-        });
-        console.log('targetConnectorPos:', targetConnectorPos);
-        console.log('draggedConnectorPos:', draggedConnectorPos);
-
         if (!canConnectFromTop(draggedBlock, targetBlock, this.workspaceSVG)) {
             draggedBlock.dataset.topLevel = 'true';
             return;
@@ -262,32 +248,8 @@ export class ConnectionManager {
         const draggedBlockRect = getBoundingClientRectRounded(draggedBlock);
         const offsetX = draggedConnectorPos.x - draggedBlockRect.left;
 
-        console.log('Calculation details:', {
-            draggedBlockRect: {
-                left: draggedBlockRect.left,
-                top: draggedBlockRect.top,
-                width: draggedBlockRect.width,
-                height: draggedBlockRect.height
-            },
-            offsetX: offsetX,
-            workspaceRect: {
-                left: workspaceRect.left,
-                top: workspaceRect.top
-            },
-            targetConnectorPosY: targetConnectorPos.y,
-            draggedConnectorPosY: draggedConnectorPos.y
-        });
-
         const finalX = targetConnectorPos.x - workspaceRect.left - offsetX;
         const finalY = this.calculateBlockYPosition(ConnectorType.TOP, targetConnectorPos.y, draggedBlockRect.height);
-
-        console.log('Final position:', {
-            finalX: finalX,
-            finalY: finalY,
-            calculationMethod: 'calculateBlockYPosition with ConnectorType.TOP',
-            note: 'targetConnector is TOP, but using TOP in calculateBlockYPosition'
-        });
-        console.log('=== END TOP CONNECTOR DEBUG ===');
 
         this.positionChainBlocks(draggedChain, draggedBlock, finalX, finalY);
         this.shiftInnerBlocksInChain(draggedChain, oldTransforms);
@@ -395,8 +357,7 @@ export class ConnectionManager {
         const finalX = calculateChainBlockX(targetBlock, targetBlock, this.workspaceSVG);
         const targetType = targetBlock.dataset.type;
         const targetForm = BLOCK_FORMS[targetType];
-        const targetBottomOffset = targetForm?.bottomOffset || 0;
-        const finalY = targetTransform.y + targetPathHeight - targetBottomOffset;
+        const finalY = targetTransform.y + targetPathHeight - CONNECTOR_SOCKET_HEIGHT;
 
         const draggedChain = getChainBlocks(draggedBlock, this.workspaceSVG);
         const oldTransforms = this.saveChainTransforms(draggedChain);
@@ -434,7 +395,7 @@ export class ConnectionManager {
             const prevForm = BLOCK_FORMS[prevBlock.dataset.type] || {};
             const nextForm = BLOCK_FORMS[block.dataset.type] || {};
             const prevPathHeight = getBlockPathHeight(prevBlock);
-            const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0);
+            const joinDelta = prevPathHeight - CONNECTOR_SOCKET_HEIGHT;
             currentY += joinDelta;
 
             const blockX = calculateChainBlockX(targetBlock, block, this.workspaceSVG);
@@ -445,8 +406,7 @@ export class ConnectionManager {
         const lowerTransform = getTranslateValues(lowerBlock.getAttribute('transform'));
         const lastInsertedPathHeight = getBlockPathHeight(insertChainBottom);
         const lastInsertedForm = BLOCK_FORMS[insertChainBottom.dataset.type] || {};
-        const lastInsertedBottomOffset = lastInsertedForm.bottomOffset || 0;
-        const lowerFinalY = (insertChain.length === 1 ? finalY : currentY) + lastInsertedPathHeight - lastInsertedBottomOffset;
+        const lowerFinalY = (insertChain.length === 1 ? finalY : currentY) + lastInsertedPathHeight - CONNECTOR_SOCKET_HEIGHT;
 
         // Сдвигаем нижнюю цепь
         const lowerChain = getChainBlocks(lowerBlock, this.workspaceSVG);

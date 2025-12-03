@@ -1,7 +1,8 @@
 import { 
     BLOCK_FORMS, 
     DEFAULT_BLOCK_HEIGHT, 
-    CBLOCK_NESTED_X_OFFSET
+    CBLOCK_NESTED_X_OFFSET,
+    CONNECTOR_SOCKET_HEIGHT
 } from '../utils/Constants.js';
 
 import { 
@@ -83,7 +84,7 @@ export function getInnerHeight(cBlock, workspaceSVG) {
     
     // Точный расчет высоты: первая высота целиком, далее учитываем коннекторные стыки
     // ВАЖНО: 
-    // bottomOffset последнего блока не должен учитываться (уже учтен в базовой высоте c-block)
+    // CONNECTOR_SOCKET_HEIGHT последнего блока не должен учитываться (уже учтен в базовой высоте c-block)
     let totalHeight = 0;
     for (let i = 0; i < innerBlocks.length; i++) {
         const block = innerBlocks[i];
@@ -102,30 +103,28 @@ export function getInnerHeight(cBlock, workspaceSVG) {
             const prevPathHeight = prevType === 'c-block'
                 ? (parseFloat(prev.dataset.height) || prevForm?.height || DEFAULT_BLOCK_HEIGHT)
                 : (prevForm?.height || parseFloat(prev.dataset.height) || DEFAULT_BLOCK_HEIGHT);
-            const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0);
+            const joinDelta = prevPathHeight - CONNECTOR_SOCKET_HEIGHT;
             totalHeight += joinDelta;
         }
     }
     
-    // Вычитаем bottomOffset последнего блока, так как он уже учтен в базовой высоте c-block
-    // ВАЖНО: для обычных блоков нужно вычитать bottomOffset + 1 (избыток 10 пикселей)
-    // для c-block нужно вычитать bottomOffset - 5 (избыток 5 пикселей)
+    // Вычитаем CONNECTOR_SOCKET_HEIGHT последнего блока, так как он уже учтен в базовой высоте c-block
+    // ВАЖНО: для обычных блоков нужно вычитать CONNECTOR_SOCKET_HEIGHT + 1 (избыток 10 пикселей)
+    // для c-block нужно вычитать CONNECTOR_SOCKET_HEIGHT - 5 (избыток 5 пикселей)
     const lastBlock = innerBlocks[innerBlocks.length - 1];
     const lastBlockType = lastBlock.dataset.type;
-    const lastBlockForm = BLOCK_FORMS[lastBlockType] || {};
-    const lastBottomOffset = lastBlockForm.bottomOffset || 0;
     
     // Корректировка для разных типов блоков
     let correction = 0;
     if (lastBlockType === 'c-block') {
-        // Для c-block: bottomOffset = 10, избыток = 5, значит нужно вычесть 10 - 5 = 5
+        // Для c-block: CONNECTOR_SOCKET_HEIGHT = 8, избыток = 5, значит нужно вычесть 8 - 5 = 3
         correction = -5;
     } else {
-        // Для обычных блоков: bottomOffset = 9, избыток = 10, значит нужно вычесть 9 + 1 = 10
+        // Для обычных блоков: CONNECTOR_SOCKET_HEIGHT = 8, избыток = 10, значит нужно вычесть 8 + 1 = 9
         correction = 1;
     }
     
-    return totalHeight - lastBottomOffset - correction;
+    return totalHeight - CONNECTOR_SOCKET_HEIGHT - correction;
 }
 
 export function getInnerBlocksCount(cBlock, workspaceSVG) {
@@ -302,7 +301,7 @@ export function insertBlockInside(cBlock, insertBlock, workspaceSVG, x, y, atBot
             const prevType = prev.dataset.type;
             const prevForm = BLOCK_FORMS[prevType] || {};
             const prevPathHeight = prevForm?.height || parseFloat(prev.dataset.height) || DEFAULT_BLOCK_HEIGHT;
-            const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0);
+            const joinDelta = prevPathHeight - CONNECTOR_SOCKET_HEIGHT;
             insertChainHeight += joinDelta;
         }
     }
@@ -319,7 +318,7 @@ export function insertBlockInside(cBlock, insertBlock, workspaceSVG, x, y, atBot
             const nextForm = BLOCK_FORMS[insertBlock.dataset.type] || {};
             
             // Позиция для нового блока
-            const insertY = lastTransform.y + (lastBlockHeight - (lastBlockForm.bottomOffset || 0));
+            const insertY = lastTransform.y + (lastBlockHeight - CONNECTOR_SOCKET_HEIGHT);
             
             // Позиционируем вставляемую цепь
             // ВАЖНО: все блоки в цепи должны иметь одинаковый X (вычисленный от первого блока)
@@ -332,7 +331,7 @@ export function insertBlockInside(cBlock, insertBlock, workspaceSVG, x, y, atBot
                 const prevBlockForm = BLOCK_FORMS[prevBlockType];
                 const prevBlockHeight = prevBlockForm?.height || parseFloat(prevBlock.dataset.height) || DEFAULT_BLOCK_HEIGHT;
                 const nextForm2 = BLOCK_FORMS[block.dataset.type] || {};
-                const joinDelta = prevBlockHeight - (prevBlockForm.bottomOffset || 0);
+                const joinDelta = prevBlockHeight - CONNECTOR_SOCKET_HEIGHT;
                 currentY += joinDelta;
                 // ВАЖНО: все блоки в цепи используют одинаковый X (вычисленный от первого блока)
                 const blockX = calculateChainBlockX(insertBlock, block, workspaceSVG);
@@ -361,7 +360,7 @@ export function insertBlockInside(cBlock, insertBlock, workspaceSVG, x, y, atBot
                 const prevBlockForm = BLOCK_FORMS[prevBlockType];
                 const prevBlockHeight = prevBlockForm?.height || parseFloat(prevBlock.dataset.height) || DEFAULT_BLOCK_HEIGHT;
                 const nextForm = BLOCK_FORMS[block.dataset.type] || {};
-                const joinDelta = prevBlockHeight - (prevBlockForm.bottomOffset || 0);
+                const joinDelta = prevBlockHeight - CONNECTOR_SOCKET_HEIGHT;
                 currentY += joinDelta;
                 // ВАЖНО: все блоки в цепи используют одинаковый X (вычисленный от первого блока)
                 const blockX = calculateChainBlockX(insertBlock, block, workspaceSVG);
@@ -404,7 +403,7 @@ export function insertBlockInside(cBlock, insertBlock, workspaceSVG, x, y, atBot
             const prevBlockForm = BLOCK_FORMS[prevBlockType];
             const prevBlockHeight = prevBlockForm?.height || parseFloat(prevBlock.dataset.height) || DEFAULT_BLOCK_HEIGHT;
             const nextForm = BLOCK_FORMS[block.dataset.type] || {};
-            const joinDelta = prevBlockHeight - (prevBlockForm.bottomOffset || 0);
+            const joinDelta = prevBlockHeight - CONNECTOR_SOCKET_HEIGHT;
             currentY += joinDelta;
             // ВАЖНО: все блоки в цепи используют одинаковый X (вычисленный от первого блока)
             const blockX = calculateChainBlockX(insertBlock, block, workspaceSVG);

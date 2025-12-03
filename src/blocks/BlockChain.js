@@ -103,7 +103,7 @@ function getBlockPathHeight(block) {
 
 /**
  * Правильно рассчитывает высоту цепи блоков
- * Учитывает коннекторные стыки между блоками (bottomOffset)
+ * Учитывает коннекторные стыки между блоками (CONNECTOR_SOCKET_HEIGHT)
  * 
  * @param {HTMLElement} startBlock - Первый блок в цепи
  * @param {HTMLElement} workspaceSVG - SVG контейнер рабочей области
@@ -128,7 +128,7 @@ export function getChainHeight(startBlock, workspaceSVG) {
             totalHeight += pathHeight;
         } else {
             // Последующие блоки: pathHeight уже учитывает перекрытие коннекторов
-            // bottomOffset уже включен в pathHeight каждого блока
+            // CONNECTOR_SOCKET_HEIGHT уже включен в pathHeight каждого блока
             // Поэтому просто суммируем pathHeight всех блоков
             totalHeight += pathHeight;
         }

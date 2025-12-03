@@ -11,7 +11,8 @@ import {
 
 import { 
     BLOCK_FORMS, 
-    DEFAULT_BLOCK_HEIGHT 
+    DEFAULT_BLOCK_HEIGHT,
+    CONNECTOR_SOCKET_HEIGHT
 } from './Constants.js';
 
 import {createWorkspaceBlock} from '../blocks/BlockFactory.js';
@@ -73,7 +74,7 @@ function restoreConnections(blocksData, blockMap, workspaceSVG) {
                 const nextForm = BLOCK_FORMS[nextBlock.dataset.type] || {};
                 const blockPathHeight = parseFloat(block.dataset.height) || blockForm.height || DEFAULT_BLOCK_HEIGHT;
                 const blockTransform = getTranslateValues(block.getAttribute('transform'));
-                const joinDelta = blockPathHeight - (blockForm.bottomOffset || 0);
+                const joinDelta = blockPathHeight - CONNECTOR_SOCKET_HEIGHT;
                 const nextY = blockTransform.y + joinDelta;
                 setTranslate(nextBlock, blockTransform.x, nextY);
             }
@@ -112,7 +113,7 @@ function restoreConnections(blocksData, blockMap, workspaceSVG) {
                     const prevForm = BLOCK_FORMS[prevBlock.dataset.type] || {};
                     const nextForm = BLOCK_FORMS[chainBlock.dataset.type] || {};
                     const prevPathHeight = parseFloat(prevBlock.dataset.height) || prevForm.height || DEFAULT_BLOCK_HEIGHT;
-                    const joinDelta = prevPathHeight - (prevForm.bottomOffset || 0);
+                    const joinDelta = prevPathHeight - CONNECTOR_SOCKET_HEIGHT;
                     currentY += joinDelta;
                     setTranslate(chainBlock, insertPos.x, currentY);
                 }

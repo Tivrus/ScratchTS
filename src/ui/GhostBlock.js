@@ -178,11 +178,9 @@ export class GhostBlock {
         const targetPathHeight = parseFloat(targetBlock.dataset.height) || 
             targetForm?.height || 
             DEFAULT_BLOCK_HEIGHT;
-        const targetBottomOffset = targetForm?.bottomOffset || 0;
-        
         return {
             x: targetTransform.x,
-            y: targetTransform.y + targetPathHeight - targetBottomOffset
+            y: targetTransform.y + targetPathHeight - CONNECTOR_SOCKET_HEIGHT
         };
     }
 
