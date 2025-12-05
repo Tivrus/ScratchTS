@@ -1,8 +1,7 @@
 import { 
     BLOCK_FORMS, 
     DEFAULT_BLOCK_HEIGHT, 
-    GHOST_BLOCK, 
-    CONNECTOR_THRESHOLD, 
+    GHOST_BLOCK,
     C_BLOCK_EMPTY_INNER_SPACE,
     CONNECTOR_SOCKET_HEIGHT
 } from '../utils/Constants.js';
@@ -19,12 +18,9 @@ import {
     getConnectorPosition 
 } from '../blocks/BlockConnectors.js';
 
-import { 
-    getTranslateValues, 
-    getBoundingClientRectRounded 
-} from '../utils/DOMUtils.js';
-
+import {getTranslateValues} from '../utils/DOMUtils.js';
 import {PathUtils} from '../utils/PathUtils.js';
+import { BlockPositionCalculator } from './drag/BlockPositionCalculator.js';
 import {getAllChainBlocks} from '../blocks/BlockChain.js';
 
 
@@ -149,26 +145,11 @@ export class GhostBlock {
             return this.calculateMiddleConnectorPosition(draggedBlock, targetBlock, targetTransform);
         }
 
-        const workspaceRect = getBoundingClientRectRounded(this.containerSVG);
-        const draggedBlockRect = getBoundingClientRectRounded(draggedBlock);
-        const offsetX = draggedConnectorPos.x - draggedBlockRect.left;
-
-        const finalX = actualConnectorPos.x - workspaceRect.left - offsetX;
-        const finalY = this.calculateGhostYPosition(connectorType, actualConnectorPos.y, draggedBlockRect.height);
-
-        return {
-            x: finalX,
-            y: finalY
-        };
-    }
-
-    calculateGhostYPosition(connectorType, connectorCenterY, draggedBlockHeight) {
-        // Для TOP коннектора (отрицательное смещение) - коннектим сверху
-        if (connectorType === ConnectorType.TOP) {
-            return connectorCenterY + CONNECTOR_THRESHOLD / 2 - (draggedBlockHeight - CONNECTOR_SOCKET_HEIGHT);
-        } else if (connectorType === ConnectorType.BOTTOM) {
-            return connectorCenterY - CONNECTOR_THRESHOLD / 2;
+        if (connectorType === ConnectorType.TOP || connectorType === ConnectorType.BOTTOM) {
+            return BlockPositionCalculator.calculateBlockPosition(targetBlock, draggedBlock, connectorType);
         }
+
+        return null;
     }
 
     calculateMiddleConnectorPosition(draggedBlock, targetBlock, targetTransform) {

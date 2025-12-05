@@ -132,21 +132,7 @@ export function getChainHeight(startBlock, workspaceSVG) {
             // Поэтому просто суммируем pathHeight всех блоков
             totalHeight += pathHeight;
         }
-    }
-    
-    // Выводим информацию о длине цепи
-    console.log('[BlockChain] getChainHeight:', {
-        startBlockId: startBlock.dataset.instanceId,
-        startBlockType: startBlock.dataset.type,
-        chainLength: chain.length,
-        chainHeight: totalHeight,
-        chainBlocks: chain.map(b => ({
-            id: b.dataset.instanceId,
-            type: b.dataset.type,
-            pathHeight: getBlockPathHeight(b)
-        }))
-    });
-    
+    }    
     return totalHeight;
 }
 

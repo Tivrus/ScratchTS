@@ -82,6 +82,11 @@ export function getInnerHeight(cBlock, workspaceSVG) {
     const innerBlocks = getInnerBlocks(cBlock, workspaceSVG);
     if (innerBlocks.length === 0) return 0;
     
+    console.log('[CBlock] getInnerHeight start:', {
+        cBlockId: cBlock?.dataset?.instanceId,
+        innerBlocksCount: innerBlocks.length
+    });
+    
     // Точный расчет высоты: первая высота целиком, далее учитываем коннекторные стыки
     // ВАЖНО: 
     // CONNECTOR_SOCKET_HEIGHT последнего блока не должен учитываться (уже учтен в базовой высоте c-block)
@@ -96,6 +101,12 @@ export function getInnerHeight(cBlock, workspaceSVG) {
         
         if (i === 0) {
             totalHeight += pathHeight;
+            console.log(`[CBlock] getInnerHeight block ${i}:`, {
+                blockId: block?.dataset?.instanceId,
+                type,
+                pathHeight,
+                totalHeight
+            });
         } else {
             const prev = innerBlocks[i - 1];
             const prevType = prev.dataset.type;
@@ -105,6 +116,18 @@ export function getInnerHeight(cBlock, workspaceSVG) {
                 : (prevForm?.height || parseFloat(prev.dataset.height) || DEFAULT_BLOCK_HEIGHT);
             const joinDelta = prevPathHeight - CONNECTOR_SOCKET_HEIGHT;
             totalHeight += joinDelta;
+            
+            console.log(`[CBlock] getInnerHeight block ${i}:`, {
+                blockId: block?.dataset?.instanceId,
+                type,
+                pathHeight,
+                prevBlockId: prev?.dataset?.instanceId,
+                prevType,
+                prevPathHeight,
+                CONNECTOR_SOCKET_HEIGHT,
+                joinDelta,
+                totalHeight
+            });
         }
     }
     
@@ -124,7 +147,18 @@ export function getInnerHeight(cBlock, workspaceSVG) {
         correction = 1;
     }
     
-    return totalHeight - CONNECTOR_SOCKET_HEIGHT - correction;
+    const finalHeight = totalHeight - CONNECTOR_SOCKET_HEIGHT - correction;
+    
+    console.log('[CBlock] getInnerHeight final:', {
+        cBlockId: cBlock?.dataset?.instanceId,
+        totalHeight,
+        CONNECTOR_SOCKET_HEIGHT,
+        correction,
+        lastBlockType,
+        finalHeight
+    });
+    
+    return finalHeight;
 }
 
 export function getInnerBlocksCount(cBlock, workspaceSVG) {

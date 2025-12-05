@@ -57,6 +57,10 @@ export function getBlockPathHeight(block) {
         return parseFloat(block.dataset.height) || blockForm?.height || DEFAULT_BLOCK_HEIGHT;
     }
 
-    return blockForm?.height || parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT;
+    if (blockForm?.height) {
+        return blockForm.height;
+    }
+
+    return parseFloat(block.dataset.height) || DEFAULT_BLOCK_HEIGHT;
 }
 
